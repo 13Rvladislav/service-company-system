@@ -1,6 +1,7 @@
 package ru.servicecompany.auth.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -24,6 +25,9 @@ public class User {
 
     @Column(nullable = false)
     private String lastName;
+
+    @Column
+    private String middleName;
 
     @Column(nullable = false, unique = true)
     private String email;

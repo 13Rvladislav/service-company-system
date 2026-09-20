@@ -4,25 +4,17 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+/*
+ * Что клиент отправляет при входе.
+ */
 @Data
-public class RegisterRequest {
-
-    @NotBlank
-    private String firstName;
-
-    @NotBlank
-    private String lastName;
-
-    @NotBlank
-    private String middleName;
+public class LoginRequest {
 
     @Email
     @NotBlank
     private String email;
 
     @NotBlank
-    private String phone;
-
-    @NotBlank
     private String password;
+
 }

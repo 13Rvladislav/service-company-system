@@ -1,5 +1,7 @@
 CREATE DATABASE auth_db;
 
+CREATE DATABASE user_db;
+
 CREATE DATABASE equipment_db;
 
 CREATE DATABASE request_db;

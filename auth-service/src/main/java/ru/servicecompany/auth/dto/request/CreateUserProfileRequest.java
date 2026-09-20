@@ -1,20 +1,21 @@
-package ru.servicecompany.auth.dto.response;
+package ru.servicecompany.auth.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 import lombok.Data;
 
 import java.util.UUID;
 
+/**
+ * Запрос в user-service на создание профиля.
+ */
 @Data
 @Builder
-public class UserResponse {
+public class CreateUserProfileRequest {
 
-    private UUID id;
+    private UUID authUserId;
     private String firstName;
     private String lastName;
     private String middleName;
-    private String email;
     private String phone;
-    private String role;
+
 }

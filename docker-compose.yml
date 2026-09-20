@@ -1,12 +1,15 @@
 services:
-  #сам постгрес 17
+
+  # ==========================
+  # PostgreSQL
+  # ==========================
   postgres:
     image: postgres:17
     container_name: sc_postgres
 
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
     ports:
       - "5433:5432"
@@ -16,7 +19,10 @@ services:
       - ./docker/postgres/init:/docker-entrypoint-initdb.d
 
     restart: unless-stopped
-  #пгадмин
+
+  # ==========================
+  # pgAdmin
+  # ==========================
   pgadmin:
     image: dpage/pgadmin4
     container_name: sc_pgadmin
@@ -32,7 +38,10 @@ services:
       - postgres
 
     restart: unless-stopped
-  #кафка
+
+  # ==========================
+  # Kafka
+  # ==========================
   kafka:
     image: apache/kafka:latest
     container_name: sc_kafka
@@ -43,15 +52,22 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
+
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
     restart: unless-stopped
-  #кафка юайка
+
+  # ==========================
+  # Kafka UI
+  # ==========================
   kafka-ui:
     image: provectuslabs/kafka-ui
     container_name: sc_kafka_ui
