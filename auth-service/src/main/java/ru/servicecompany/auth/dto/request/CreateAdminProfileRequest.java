@@ -1,5 +1,6 @@
 package ru.servicecompany.auth.dto.request;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -9,7 +10,8 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class CreateUserProfileRequest {
+@AllArgsConstructor
+public class CreateAdminProfileRequest {
 
     private UUID authUserId;
 
@@ -20,4 +22,8 @@ public class CreateUserProfileRequest {
     private String middleName;
 
     private String phone;
+
+    private String employeeNumber;
+
+    private String position;
 }

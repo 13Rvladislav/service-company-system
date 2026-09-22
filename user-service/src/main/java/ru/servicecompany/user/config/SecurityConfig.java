@@ -3,6 +3,8 @@ package ru.servicecompany.user.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -13,37 +15,42 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationFilter jwtFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
+                .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
 
-                .formLogin(AbstractHttpConfigurer::disable)
-
-                .httpBasic(AbstractHttpConfigurer::disable)
-
-                .logout(AbstractHttpConfigurer::disable)
-
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
+
+                        // CORS preflight
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Swagger
                         .requestMatchers(
-                                "/swagger/**",
-                                "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/v3/api-docs/**"
                         ).permitAll()
+
+                        // Внутренние endpoint'ы
+                        .requestMatchers("/internal/**").permitAll()
+
+                        // Профиль
+                        .requestMatchers("/api/profile/me").authenticated()
 
                         .anyRequest().authenticated()
                 )
 
+                .httpBasic(AbstractHttpConfigurer::disable)
+
                 .addFilterBefore(
-                        jwtAuthenticationFilter,
+                        jwtFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
 

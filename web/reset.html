@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Восстановление пароля</title>
+
+    <style>
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:Inter,Arial,sans-serif;
+        }
+
+        body{
+            height:100vh;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            background:#eef2f7;
+        }
+
+        .card{
+            width:420px;
+            background:#fff;
+            padding:35px;
+            border-radius:18px;
+            box-shadow:0 12px 30px rgba(0,0,0,.08);
+        }
+
+        h1{
+            color:#1e293b;
+            margin-bottom:10px;
+        }
+
+        p{
+            color:#64748b;
+            margin-bottom:20px;
+            font-size:14px;
+        }
+
+        input{
+            width:100%;
+            padding:13px;
+            border:1px solid #d1d5db;
+            border-radius:10px;
+            margin-bottom:14px;
+            font-size:15px;
+        }
+
+        button{
+            width:100%;
+            padding:13px;
+            border:none;
+            border-radius:10px;
+            background:#16a34a;
+            color:white;
+            font-weight:600;
+            cursor:pointer;
+        }
+
+        button:hover{
+            background:#15803d;
+        }
+
+        #msg{
+            margin-top:16px;
+            font-size:14px;
+            text-align:center;
+        }
+
+        .success{color:#15803d;}
+        .error{color:#dc2626;}
+    </style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <h1>Новый пароль</h1>
+
+    <p>Введите новый пароль для вашей учетной записи.</p>
+
+    <input
+            id="password"
+            type="password"
+            placeholder="Новый пароль">
+
+    <input
+            id="repeatPassword"
+            type="password"
+            placeholder="Повторите пароль">
+
+    <button id="saveBtn">
+        Сохранить пароль
+    </button>
+
+    <div id="msg"></div>
+
+</div>
+
+<script>
+
+    const AUTH = "http://localhost:8081";
+
+    const token = new URLSearchParams(window.location.search).get("token");
+
+    const password = document.getElementById("password");
+    const repeatPassword = document.getElementById("repeatPassword");
+    const msg = document.getElementById("msg");
+
+    document.getElementById("saveBtn").addEventListener("click", resetPassword);
+
+    async function resetPassword(){
+
+        msg.className = "";
+        msg.innerText = "";
+
+        if(!token){
+            msg.className = "error";
+            msg.innerText = "Токен восстановления отсутствует.";
+            return;
+        }
+
+        if(password.value !== repeatPassword.value){
+            msg.className = "error";
+            msg.innerText = "Пароли не совпадают.";
+            return;
+        }
+
+        const response = await fetch(`${AUTH}/api/auth/reset-password`,{
+
+            method:"POST",
+
+            headers:{
+                "Content-Type":"application/json"
+            },
+
+            body:JSON.stringify({
+
+                token:token,
+                newPassword:password.value
+
+            })
+
+        });
+
+        const data = await response.json();
+
+        if(response.ok){
+
+            msg.className = "success";
+            msg.innerText = "Пароль успешно изменён.";
+
+            setTimeout(()=>{
+                window.location.href="index.html";
+            },1500);
+
+        }else{
+
+            msg.className = "error";
+            msg.innerText = data.message || "Ошибка восстановления.";
+
+        }
+
+    }
+
+</script>
+
+</body>
+</html>

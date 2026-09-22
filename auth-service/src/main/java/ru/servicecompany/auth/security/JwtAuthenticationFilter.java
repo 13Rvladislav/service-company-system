@@ -55,7 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Получаем email
+        // Получаем email из JWT
         String email = jwtService.extractEmail(token);
 
         // Загружаем пользователя вместе с ролью
@@ -69,8 +69,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             user,
                             null,
                             List.of(
+                                    // ОБЯЗАТЕЛЬНО ROLE_
                                     new SimpleGrantedAuthority(
-                                            user.getRole().getName().name()
+                                            "ROLE_" + user.getRole().getName().name()
                                     )
                             )
                     );

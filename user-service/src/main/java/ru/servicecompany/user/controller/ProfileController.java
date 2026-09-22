@@ -1,11 +1,11 @@
 package ru.servicecompany.user.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import ru.servicecompany.user.config.JwtUserPrincipal;
+import ru.servicecompany.user.dto.request.UpdateUserProfileRequest;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
 import ru.servicecompany.user.service.UserProfileService;
 
@@ -28,6 +28,27 @@ public class ProfileController {
         JwtUserPrincipal principal =
                 (JwtUserPrincipal) authentication.getPrincipal();
 
-        return userProfileService.getCurrentProfile(principal.userId());
+        return userProfileService.getCurrentProfile(
+                principal.userId(),
+                principal.role()
+        );
+    }
+
+    /**
+     * Обновить профиль текущего пользователя.
+     */
+    @PutMapping("/me")
+    public UserProfileResponse updateMe(
+            Authentication authentication,
+            @RequestBody @Valid UpdateUserProfileRequest request
+    ) {
+
+        JwtUserPrincipal principal =
+                (JwtUserPrincipal) authentication.getPrincipal();
+
+        return userProfileService.updateCurrentProfile(
+                principal.userId(),
+                request
+        );
     }
 }

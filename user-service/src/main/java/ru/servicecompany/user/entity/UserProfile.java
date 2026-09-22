@@ -20,7 +20,9 @@ import java.util.UUID;
 @Builder
 public class UserProfile {
 
-    /** Первичный ключ профиля */
+    /**
+     * Первичный ключ профиля
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -32,26 +34,55 @@ public class UserProfile {
     @Column(nullable = false, unique = true)
     private UUID authUserId;
 
-    /** Имя */
+    /**
+     * Имя
+     */
     @Column(nullable = false)
     private String firstName;
 
-    /** Фамилия */
+    /**
+     * Фамилия
+     */
     @Column(nullable = false)
     private String lastName;
 
-    /** Отчество */
+    /**
+     * Отчество
+     */
     private String middleName;
 
-    /** Телефон */
+    /**
+     * Телефон
+     */
     @Column(nullable = false)
     private String phone;
+// =====================
+// Адрес проживания
+// =====================
 
-    /** Дата создания профиля */
+    @Column
+    private String city;
+
+    @Column
+    private String street;
+
+    @Column
+    private String house;
+
+    @Column
+    private String apartment;
+
+    @Column
+    private UUID zoneId;
+    /**
+     * Дата создания профиля
+     */
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    /** Дата последнего обновления */
+    /**
+     * Дата последнего обновления
+     */
     private LocalDateTime updatedAt;
 
     /**
