@@ -23,19 +23,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
-    // Репозиторий пользователей
     private final UserRepository userRepository;
-
-    // Репозиторий ролей
     private final RoleRepository roleRepository;
-
-    // Шифрование паролей
     private final PasswordEncoder passwordEncoder;
-
-    // Генерация JWT
     private final JwtService jwtService;
-
-    // Взаимодействие с user-service
     private final UserServiceClient userServiceClient;
 
     /**
@@ -44,17 +35,13 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "Пользователь с таким Email уже существует"
-            );
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Пользователь с таким Email уже существует");
         }
 
         if (userRepository.existsByPhone(request.getPhone())) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "Пользователь с таким телефоном уже существует"
-            );
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Пользователь с таким телефоном уже существует");
         }
 
         Role role = roleRepository.findByName(RoleName.CLIENT)
@@ -77,21 +64,34 @@ public class AuthService {
 
         userRepository.save(user);
 
-        CreateUserProfileRequest profile = new CreateUserProfileRequest();
+        try {
 
-        profile.setAuthUserId(user.getId());
-        profile.setFirstName(user.getFirstName());
-        profile.setLastName(user.getLastName());
-        profile.setMiddleName(user.getMiddleName());
-        profile.setPhone(user.getPhone());
+            CreateUserProfileRequest profile = new CreateUserProfileRequest();
 
-        userServiceClient.createProfile(profile);
+            profile.setAuthUserId(user.getId());
+            profile.setFirstName(user.getFirstName());
+            profile.setLastName(user.getLastName());
+            profile.setMiddleName(user.getMiddleName());
+            profile.setPhone(user.getPhone());
+
+            userServiceClient.createProfile(profile);
+
+        } catch (Exception e) {
+
+            // Компенсация — удаляем аккаунт
+            userRepository.delete(user);
+
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Не удалось создать профиль клиента"
+            );
+        }
 
         return map(user);
     }
 
     /**
-     * Авторизация пользователя.
+     * Авторизация.
      */
     public LoginResponse login(LoginRequest request) {
 
@@ -101,7 +101,11 @@ public class AuthService {
                         "Неверный Email или пароль"
                 ));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(
+                request.getPassword(),
+                user.getPassword()
+        )) {
+
             throw new ApiException(
                     HttpStatus.UNAUTHORIZED,
                     "Неверный Email или пароль"
@@ -159,72 +163,87 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(temporaryPassword));
         user.setRole(role);
 
+        // Сначала сохраняем аккаунт
         userRepository.save(user);
 
-        switch (request.getRole()) {
+        try {
 
-            case ENGINEER -> {
+            switch (request.getRole()) {
 
-                CreateMasterProfileRequest profile =
-                        new CreateMasterProfileRequest();
+                case ENGINEER -> {
 
-                profile.setAuthUserId(user.getId());
-                profile.setFirstName(user.getFirstName());
-                profile.setLastName(user.getLastName());
-                profile.setMiddleName(user.getMiddleName());
-                profile.setPhone(user.getPhone());
+                    CreateMasterProfileRequest profile =
+                            new CreateMasterProfileRequest();
 
-                profile.setEmployeeNumber(request.getEmployeeNumber());
-                profile.setSpecialization(request.getSpecialization());
+                    profile.setAuthUserId(user.getId());
+                    profile.setFirstName(user.getFirstName());
+                    profile.setLastName(user.getLastName());
+                    profile.setMiddleName(user.getMiddleName());
+                    profile.setPhone(user.getPhone());
 
-                if (request.getZoneId() != null &&
-                        !request.getZoneId().isBlank()) {
+                    profile.setEmployeeNumber(request.getEmployeeNumber());
+                    profile.setSpecialization(request.getSpecialization());
 
-                    profile.setZoneId(
-                            UUID.fromString(request.getZoneId())
-                    );
+                    if (request.getZoneId() != null &&
+                            !request.getZoneId().isBlank()) {
+
+                        profile.setZoneId(
+                                UUID.fromString(request.getZoneId())
+                        );
+                    }
+
+                    userServiceClient.createMasterProfile(profile);
                 }
 
-                userServiceClient.createMasterProfile(profile);
+                case DISPATCHER -> {
+
+                    CreateDispatcherProfileRequest profile =
+                            new CreateDispatcherProfileRequest();
+
+                    profile.setAuthUserId(user.getId());
+                    profile.setFirstName(user.getFirstName());
+                    profile.setLastName(user.getLastName());
+                    profile.setMiddleName(user.getMiddleName());
+                    profile.setPhone(user.getPhone());
+
+                    profile.setEmployeeNumber(request.getEmployeeNumber());
+                    profile.setDepartment(request.getDepartment());
+
+                    userServiceClient.createDispatcherProfile(profile);
+                }
+
+                case ADMIN -> {
+
+                    CreateAdminProfileRequest profile =
+                            new CreateAdminProfileRequest();
+
+                    profile.setAuthUserId(user.getId());
+                    profile.setFirstName(user.getFirstName());
+                    profile.setLastName(user.getLastName());
+                    profile.setMiddleName(user.getMiddleName());
+                    profile.setPhone(user.getPhone());
+
+                    profile.setEmployeeNumber(request.getEmployeeNumber());
+                    profile.setPosition(request.getPosition());
+
+                    userServiceClient.createAdminProfile(profile);
+                }
+
+                default -> throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "Недопустимая роль сотрудника"
+                );
             }
 
-            case DISPATCHER -> {
+        } catch (Exception e) {
 
-                CreateDispatcherProfileRequest profile =
-                        new CreateDispatcherProfileRequest();
+            // Компенсирующая транзакция:
+            // если профиль не создался — удаляем аккаунт
+            userRepository.delete(user);
 
-                profile.setAuthUserId(user.getId());
-                profile.setFirstName(user.getFirstName());
-                profile.setLastName(user.getLastName());
-                profile.setMiddleName(user.getMiddleName());
-                profile.setPhone(user.getPhone());
-
-                profile.setEmployeeNumber(request.getEmployeeNumber());
-                profile.setDepartment(request.getDepartment());
-
-                userServiceClient.createDispatcherProfile(profile);
-            }
-
-            case ADMIN -> {
-
-                CreateAdminProfileRequest profile =
-                        new CreateAdminProfileRequest();
-
-                profile.setAuthUserId(user.getId());
-                profile.setFirstName(user.getFirstName());
-                profile.setLastName(user.getLastName());
-                profile.setMiddleName(user.getMiddleName());
-                profile.setPhone(user.getPhone());
-
-                profile.setEmployeeNumber(request.getEmployeeNumber());
-                profile.setPosition(request.getPosition());
-
-                userServiceClient.createAdminProfile(profile);
-            }
-
-            default -> throw new ApiException(
+            throw new ApiException(
                     HttpStatus.BAD_REQUEST,
-                    "Недопустимая роль сотрудника"
+                    "Не удалось создать профиль сотрудника"
             );
         }
 
@@ -249,9 +268,7 @@ public class AuthService {
 
         for (int i = 0; i < 10; i++) {
             password.append(
-                    chars.charAt(
-                            random.nextInt(chars.length())
-                    )
+                    chars.charAt(random.nextInt(chars.length()))
             );
         }
 
@@ -266,13 +283,10 @@ public class AuthService {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
-
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .middleName(user.getMiddleName())
-
                 .phone(user.getPhone())
-
                 .role(user.getRole().getName().name())
                 .build();
     }

@@ -53,9 +53,15 @@ async function login() {
         return;
     }
 
-    authUser = data;
-    showApp();
-    loadProfile();
+    // Получаем текущего пользователя
+    const meResponse = await fetch(`${AUTH}/api/auth/me`, {
+        credentials: "include"
+    });
+
+    authUser = await meResponse.json();
+
+    // Сначала загружаем профиль, потом показываем приложение
+    await showApp();
 }
 
 async function checkAuth() {
@@ -70,12 +76,11 @@ async function checkAuth() {
 
         authUser = await response.json();
 
-        showApp();
-        loadProfile();
+        await showApp();
 
     } catch {
+        // Пользователь не авторизован
     }
-
 }
 
 async function logout() {
@@ -90,13 +95,15 @@ async function logout() {
 
 /* ---------- UI ---------- */
 
-function showApp() {
+async function showApp() {
 
     loginPage.style.display = "none";
     appPage.style.display = "block";
 
     userEmail.innerText = authUser.email;
     roleText.innerText = authUser.role;
+
+    await loadProfile();
 }
 
 /* ---------- Профиль ---------- */
@@ -123,7 +130,7 @@ async function loadProfile() {
     userName.innerText =
         `${profile.lastName} ${profile.firstName}`;
 
-    switch (authUser.role) {
+    switch (profile.role) {
 
         case "CLIENT":
             renderClient(profile);
@@ -134,18 +141,20 @@ async function loadProfile() {
             break;
 
         case "DISPATCHER":
-        case "ADMIN":
             renderDispatcher(profile);
+            break;
+
+        case "ADMIN":
+            renderAdmin(profile);
             break;
 
         default:
             view.innerHTML = `
                 <div class="panel">
-                    Неизвестная роль
+                    <h2>Неизвестная роль</h2>
                 </div>
             `;
     }
-
 }
 
 /* ---------- CLIENT ---------- */
@@ -218,12 +227,12 @@ function renderEngineer(p) {
 
                 <div class="field">
                     <label>Фамилия</label>
-                    <input value="${p.lastName}" readonly>
+                    <input value="${p.lastName ?? ""}" readonly>
                 </div>
 
                 <div class="field">
                     <label>Имя</label>
-                    <input value="${p.firstName}" readonly>
+                    <input value="${p.firstName ?? ""}" readonly>
                 </div>
 
                 <div class="field">
@@ -233,22 +242,22 @@ function renderEngineer(p) {
 
                 <div class="field">
                     <label>Телефон</label>
-                    <input value="${p.phone}" readonly>
+                    <input value="${p.phone ?? ""}" readonly>
                 </div>
 
                 <div class="field">
                     <label>Табельный номер</label>
-                    <input value="${p.employeeNumber}" readonly>
+                    <input value="${p.employeeNumber ?? ""}" readonly>
                 </div>
 
                 <div class="field">
                     <label>Специализация</label>
-                    <input value="${p.specialization}" readonly>
+                    <input value="${p.specialization ?? ""}" readonly>
                 </div>
 
                 <div class="field">
                     <label>Статус</label>
-                    <input value="${p.status}" readonly>
+                    <input value="${p.status ?? ""}" readonly>
                 </div>
 
                 <div class="field">
@@ -262,30 +271,25 @@ function renderEngineer(p) {
     `;
 }
 
-/* ---------- DISPATCHER / ADMIN ---------- */
+/* ---------- DISPATCHER ---------- */
 
 function renderDispatcher(p) {
-
-    const title =
-        authUser.role === "ADMIN"
-            ? "Профиль администратора"
-            : "Профиль диспетчера";
 
     view.innerHTML = `
         <div class="panel">
 
-            <h2>${title}</h2>
+            <h2>Профиль диспетчера</h2>
 
             <div class="grid">
 
                 <div class="field">
                     <label>Фамилия</label>
-                    <input value="${p.lastName}" readonly>
+                    <input value="${p.lastName ?? ""}" readonly>
                 </div>
 
                 <div class="field">
                     <label>Имя</label>
-                    <input value="${p.firstName}" readonly>
+                    <input value="${p.firstName ?? ""}" readonly>
                 </div>
 
                 <div class="field">
@@ -295,17 +299,64 @@ function renderDispatcher(p) {
 
                 <div class="field">
                     <label>Телефон</label>
-                    <input value="${p.phone}" readonly>
+                    <input value="${p.phone ?? ""}" readonly>
                 </div>
 
                 <div class="field">
                     <label>Табельный номер</label>
-                    <input value="${p.employeeNumber}" readonly>
+                    <input value="${p.employeeNumber ?? ""}" readonly>
                 </div>
 
                 <div class="field">
                     <label>Подразделение</label>
-                    <input value="${p.department}" readonly>
+                    <input value="${p.department ?? ""}" readonly>
+                </div>
+
+            </div>
+
+        </div>
+    `;
+}
+
+/* ---------- ADMIN ---------- */
+
+function renderAdmin(p) {
+
+    view.innerHTML = `
+        <div class="panel">
+
+            <h2>Профиль администратора</h2>
+
+            <div class="grid">
+
+                <div class="field">
+                    <label>Фамилия</label>
+                    <input value="${p.lastName ?? ""}" readonly>
+                </div>
+
+                <div class="field">
+                    <label>Имя</label>
+                    <input value="${p.firstName ?? ""}" readonly>
+                </div>
+
+                <div class="field">
+                    <label>Отчество</label>
+                    <input value="${p.middleName ?? ""}" readonly>
+                </div>
+
+                <div class="field">
+                    <label>Телефон</label>
+                    <input value="${p.phone ?? ""}" readonly>
+                </div>
+
+                <div class="field">
+                    <label>Табельный номер</label>
+                    <input value="${p.employeeNumber ?? ""}" readonly>
+                </div>
+
+                <div class="field">
+                    <label>Должность</label>
+                    <input value="${p.position ?? ""}" readonly>
                 </div>
 
             </div>
