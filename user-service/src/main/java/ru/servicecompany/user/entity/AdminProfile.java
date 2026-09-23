@@ -51,6 +51,13 @@ public class AdminProfile {
     @Column(nullable = false)
     private String position;
 
+    /**
+     * Фото профиля
+     */
+    @Lob
+    @Column(name = "avatar")
+    private byte[] avatar;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

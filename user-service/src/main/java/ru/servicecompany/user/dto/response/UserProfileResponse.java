@@ -39,6 +39,11 @@ public class UserProfileResponse {
     private String role;
 
     /**
+     * Есть ли фотография профиля.
+     */
+    private Boolean  hasAvatar;
+
+    /**
      * Поля мастера.
      */
     private String employeeNumber;

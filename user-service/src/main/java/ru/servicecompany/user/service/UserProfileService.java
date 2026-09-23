@@ -3,6 +3,8 @@ package ru.servicecompany.user.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import ru.servicecompany.user.common.exception.ApiException;
 import ru.servicecompany.user.dto.request.CreateUserProfileRequest;
 import ru.servicecompany.user.dto.request.UpdateUserProfileRequest;
@@ -16,6 +18,7 @@ import ru.servicecompany.user.repository.DispatcherProfileRepository;
 import ru.servicecompany.user.repository.MasterProfileRepository;
 import ru.servicecompany.user.repository.UserProfileRepository;
 
+import java.io.IOException;
 import java.util.UUID;
 
 @Service
@@ -53,6 +56,7 @@ public class UserProfileService {
     /**
      * Получить профиль текущего пользователя.
      */
+    @Transactional(readOnly = true)
     public UserProfileResponse getCurrentProfile(UUID userId, String role) {
 
         return switch (role) {
@@ -86,6 +90,7 @@ public class UserProfileService {
                         .zoneId(p.getZoneId())
                         .status(p.getStatus().name())
                         .role(role)
+                        .hasAvatar(p.getAvatar() != null)
                         .build();
             }
 
@@ -106,6 +111,7 @@ public class UserProfileService {
                         .employeeNumber(p.getEmployeeNumber())
                         .department(p.getDepartment())
                         .role(role)
+                        .hasAvatar(p.getAvatar() != null)
                         .build();
             }
 
@@ -126,6 +132,7 @@ public class UserProfileService {
                         .employeeNumber(p.getEmployeeNumber())
                         .position(p.getPosition())
                         .role(role)
+                        .hasAvatar(p.getAvatar() != null)
                         .build();
             }
 
@@ -164,9 +171,118 @@ public class UserProfileService {
     }
 
     /**
+     * Загрузить или заменить фото профиля.
+     */
+    public void uploadAvatar(
+            UUID userId,
+            String role,
+            MultipartFile file
+    ) throws IOException {
+
+        byte[] avatar = file.getBytes();
+
+        switch (role) {
+
+            case "CLIENT" -> {
+                UserProfile profile = userRepository.findByAuthUserId(userId)
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Профиль пользователя не найден"
+                        ));
+
+                profile.setAvatar(avatar);
+                userRepository.save(profile);
+            }
+
+            case "ENGINEER" -> {
+                MasterProfile profile = masterRepository.findByAuthUserId(userId)
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Профиль мастера не найден"
+                        ));
+
+                profile.setAvatar(avatar);
+                masterRepository.save(profile);
+            }
+
+            case "DISPATCHER" -> {
+                DispatcherProfile profile = dispatcherRepository.findByAuthUserId(userId)
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Профиль диспетчера не найден"
+                        ));
+
+                profile.setAvatar(avatar);
+                dispatcherRepository.save(profile);
+            }
+
+            case "ADMIN" -> {
+                AdminProfile profile = adminRepository.findByAuthUserId(userId)
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Профиль администратора не найден"
+                        ));
+
+                profile.setAvatar(avatar);
+                adminRepository.save(profile);
+            }
+
+            default -> throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Неизвестная роль"
+            );
+        }
+    }
+
+    /**
+     * Получить фото профиля.
+     */
+    @Transactional(readOnly = true)
+    public byte[] getAvatar(UUID userId, String role) {
+
+        return switch (role) {
+
+            case "CLIENT" -> userRepository.findByAuthUserId(userId)
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Профиль пользователя не найден"
+                    ))
+                    .getAvatar();
+
+            case "ENGINEER" -> masterRepository.findByAuthUserId(userId)
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Профиль мастера не найден"
+                    ))
+                    .getAvatar();
+
+            case "DISPATCHER" -> dispatcherRepository.findByAuthUserId(userId)
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Профиль диспетчера не найден"
+                    ))
+                    .getAvatar();
+
+            case "ADMIN" -> adminRepository.findByAuthUserId(userId)
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Профиль администратора не найден"
+                    ))
+                    .getAvatar();
+
+            default -> throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Неизвестная роль"
+            );
+        };
+    }
+
+    /**
      * Entity -> Response
      */
     private UserProfileResponse map(UserProfile profile, String role) {
+
+        System.out.println("AVATAR = " + profile.getAvatar());
 
         return UserProfileResponse.builder()
                 .id(profile.getId())
@@ -180,6 +296,7 @@ public class UserProfileService {
                 .house(profile.getHouse())
                 .apartment(profile.getApartment())
                 .zoneId(profile.getZoneId())
+                .hasAvatar(profile.getAvatar() != null)
                 .role(role)
                 .build();
     }

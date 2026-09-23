@@ -157,12 +157,71 @@ async function loadProfile() {
     }
 }
 
+function avatarUrl() {
+    return `${USER}/api/profile/me/avatar?${Date.now()}`;
+}
+
+async function uploadAvatar(event) {
+
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${USER}/api/profile/me/avatar`, {
+        method: "POST",
+        credentials: "include",
+        body: formData
+    });
+
+    if (!response.ok) {
+        alert("Не удалось загрузить фотографию");
+        return;
+    }
+
+    loadProfile();
+}
+
 /* ---------- CLIENT ---------- */
 
 function renderClient(p) {
 
+    const avatar = p.hasAvatar
+        ? avatarUrl()
+        : "https://placehold.co/120x120?text=Фото";
+
     view.innerHTML = `
         <div class="panel">
+
+            <div class="profile-header">
+                <div class="profile-title">
+                    <h2>${p.lastName} ${p.firstName}</h2>
+                    <h3>${authUser.email}</h3>
+                </div>
+                
+                <div class="avatar-box">
+
+                    <img
+                        class="profile-avatar"
+                        src="${avatar}"
+                        alt="Фото">
+
+                    <input
+                        id="avatarInput"
+                        type="file"
+                        accept="image/*"
+                        hidden>
+
+                    <button class="avatar-btn" id="avatarBtn">
+    Загрузить фото
+</button>
+
+                </div>
+
+                
+
+            </div>
 
             <h2>Личные данные</h2>
 
@@ -212,14 +271,47 @@ function renderClient(p) {
 
         </div>
     `;
+
+    const input = document.getElementById("avatarInput");
+
+    document
+        .getElementById("avatarBtn")
+        .addEventListener("click", () => input.click());
+
+    input.addEventListener("change", uploadAvatar);
 }
 
 /* ---------- ENGINEER ---------- */
 
 function renderEngineer(p) {
 
+    const avatar = p.hasAvatar
+        ? avatarUrl()
+        : "https://placehold.co/120x120?text=Фото";
+
     view.innerHTML = `
         <div class="panel">
+
+            <div class="profile-header">
+
+                <div class="avatar-box">
+
+                    <img class="profile-avatar" src="${avatar}" alt="Фото">
+
+                    <input id="avatarInput" type="file" accept="image/*" hidden>
+
+                    <button class="avatar-btn" id="avatarBtn">
+                        Загрузить фото
+                    </button>
+
+                </div>
+
+                <div class="profile-title">
+                    <h2>${p.lastName} ${p.firstName}</h2>
+                    <p>${authUser.email}</p>
+                </div>
+
+            </div>
 
             <h2>Профиль мастера</h2>
 
@@ -269,14 +361,47 @@ function renderEngineer(p) {
 
         </div>
     `;
+
+    const input = document.getElementById("avatarInput");
+
+    document
+        .getElementById("avatarBtn")
+        .addEventListener("click", () => input.click());
+
+    input.addEventListener("change", uploadAvatar);
 }
 
 /* ---------- DISPATCHER ---------- */
 
 function renderDispatcher(p) {
 
+    const avatar = p.hasAvatar
+        ? avatarUrl()
+        : "https://placehold.co/120x120?text=Фото";
+
     view.innerHTML = `
         <div class="panel">
+
+            <div class="profile-header">
+
+                <div class="avatar-box">
+
+                    <img class="profile-avatar" src="${avatar}" alt="Фото">
+
+                    <input id="avatarInput" type="file" accept="image/*" hidden>
+
+                    <button class="avatar-btn" id="avatarBtn">
+                        Загрузить фото
+                    </button>
+
+                </div>
+
+                <div class="profile-title">
+                    <h2>${p.lastName} ${p.firstName}</h2>
+                    <p>${authUser.email}</p>
+                </div>
+
+            </div>
 
             <h2>Профиль диспетчера</h2>
 
@@ -316,14 +441,47 @@ function renderDispatcher(p) {
 
         </div>
     `;
+
+    const input = document.getElementById("avatarInput");
+
+    document
+        .getElementById("avatarBtn")
+        .addEventListener("click", () => input.click());
+
+    input.addEventListener("change", uploadAvatar);
 }
 
 /* ---------- ADMIN ---------- */
 
 function renderAdmin(p) {
 
+    const avatar = p.hasAvatar
+        ? avatarUrl()
+        : "https://placehold.co/120x120?text=Фото";
+
     view.innerHTML = `
         <div class="panel">
+
+            <div class="profile-header">
+
+                <div class="avatar-box">
+
+                    <img class="profile-avatar" src="${avatar}" alt="Фото">
+
+                    <input id="avatarInput" type="file" accept="image/*" hidden>
+
+                    <button class="avatar-btn" id="avatarBtn">
+                        Загрузить фото
+                    </button>
+
+                </div>
+
+                <div class="profile-title">
+                    <h2>${p.lastName} ${p.firstName}</h2>
+                    <p>${authUser.email}</p>
+                </div>
+
+            </div>
 
             <h2>Профиль администратора</h2>
 
@@ -363,6 +521,14 @@ function renderAdmin(p) {
 
         </div>
     `;
+
+    const input = document.getElementById("avatarInput");
+
+    document
+        .getElementById("avatarBtn")
+        .addEventListener("click", () => input.click());
+
+    input.addEventListener("change", uploadAvatar);
 }
 
 /* ---------- Заглушки ---------- */

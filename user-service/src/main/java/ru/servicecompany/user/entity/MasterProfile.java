@@ -61,6 +61,14 @@ public class MasterProfile {
     @Column(nullable = false)
     private MasterStatus status = MasterStatus.AVAILABLE;
 
+    // =====================
+    // Фото профиля
+    // =====================
+
+    @Lob
+    @Column(name = "avatar")
+    private byte[] avatar;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -56,9 +56,10 @@ public class UserProfile {
      */
     @Column(nullable = false)
     private String phone;
-// =====================
-// Адрес проживания
-// =====================
+
+    // =====================
+    // Адрес проживания
+    // =====================
 
     @Column
     private String city;
@@ -74,6 +75,15 @@ public class UserProfile {
 
     @Column
     private UUID zoneId;
+
+    // =====================
+    // Фото профиля
+    // =====================
+
+    @Lob
+    @Column(name = "avatar")
+    private byte[] avatar;
+
     /**
      * Дата создания профиля
      */

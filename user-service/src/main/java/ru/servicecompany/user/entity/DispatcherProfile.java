@@ -49,6 +49,13 @@ public class DispatcherProfile {
     @Column(nullable = false)
     private String department;
 
+    /**
+     * Фото профиля
+     */
+    @Lob
+    @Column(name = "avatar")
+    private byte[] avatar;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
