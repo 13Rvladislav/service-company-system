@@ -3,6 +3,7 @@ package ru.servicecompany.user.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -59,23 +60,37 @@ public class ProfileController {
     /**
      * Загрузить или заменить фотографию профиля.
      */
+    /**
+     * Загрузить или заменить фотографию профиля.
+     */
     @PostMapping(
             value = "/me/avatar",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
-    public void uploadAvatar(
+    public ResponseEntity<Void> uploadAvatar(
             Authentication authentication,
             @RequestPart("file") MultipartFile file
-    ) throws IOException {
+    ) {
 
-        JwtUserPrincipal principal =
-                (JwtUserPrincipal) authentication.getPrincipal();
+        try {
 
-        userProfileService.uploadAvatar(
-                principal.userId(),
-                principal.role(),
-                file
-        );
+            JwtUserPrincipal principal =
+                    (JwtUserPrincipal) authentication.getPrincipal();
+
+            userProfileService.uploadAvatar(
+                    principal.userId(),
+                    principal.role(),
+                    file
+            );
+
+            return ResponseEntity.ok().build();
+
+        } catch (Exception e) {
+
+            e.printStackTrace();          // <-- ОБЯЗАТЕЛЬНО
+            throw new RuntimeException(e);
+
+        }
     }
 
     /**

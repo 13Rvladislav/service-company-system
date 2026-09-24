@@ -9,14 +9,8 @@ import ru.servicecompany.user.common.exception.ApiException;
 import ru.servicecompany.user.dto.request.CreateUserProfileRequest;
 import ru.servicecompany.user.dto.request.UpdateUserProfileRequest;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
-import ru.servicecompany.user.entity.AdminProfile;
-import ru.servicecompany.user.entity.DispatcherProfile;
-import ru.servicecompany.user.entity.MasterProfile;
-import ru.servicecompany.user.entity.UserProfile;
-import ru.servicecompany.user.repository.AdminProfileRepository;
-import ru.servicecompany.user.repository.DispatcherProfileRepository;
-import ru.servicecompany.user.repository.MasterProfileRepository;
-import ru.servicecompany.user.repository.UserProfileRepository;
+import ru.servicecompany.user.entity.*;
+import ru.servicecompany.user.repository.*;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -29,18 +23,21 @@ public class UserProfileService {
     private final MasterProfileRepository masterRepository;
     private final DispatcherProfileRepository dispatcherRepository;
     private final AdminProfileRepository adminRepository;
-
+    private final HouseRepository houseRepository;
     /**
      * Создание профиля клиента.
      */
     public UserProfileResponse create(CreateUserProfileRequest request) {
 
         if (userRepository.existsByAuthUserId(request.getAuthUserId())) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "Профиль уже существует"
-            );
+            throw new ApiException(HttpStatus.CONFLICT, "Профиль уже существует");
         }
+
+        House house = houseRepository.findById(request.getHouseId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Дом не найден"
+                ));
 
         UserProfile profile = UserProfile.builder()
                 .authUserId(request.getAuthUserId())
@@ -48,6 +45,8 @@ public class UserProfileService {
                 .lastName(request.getLastName())
                 .middleName(request.getMiddleName())
                 .phone(request.getPhone())
+                .house(house)
+                .apartment(request.getApartment())
                 .build();
 
         return map(userRepository.save(profile), "CLIENT");
@@ -87,10 +86,9 @@ public class UserProfileService {
                         .phone(p.getPhone())
                         .employeeNumber(p.getEmployeeNumber())
                         .specialization(p.getSpecialization())
-                        .zoneId(p.getZoneId())
                         .status(p.getStatus().name())
                         .role(role)
-                        .hasAvatar(p.getAvatar() != null)
+                        .hasAvatar(p.getAvatar() != null && p.getAvatar().length > 0)
                         .build();
             }
 
@@ -111,7 +109,7 @@ public class UserProfileService {
                         .employeeNumber(p.getEmployeeNumber())
                         .department(p.getDepartment())
                         .role(role)
-                        .hasAvatar(p.getAvatar() != null)
+                        .hasAvatar(p.getAvatar() != null && p.getAvatar().length > 0)
                         .build();
             }
 
@@ -132,7 +130,7 @@ public class UserProfileService {
                         .employeeNumber(p.getEmployeeNumber())
                         .position(p.getPosition())
                         .role(role)
-                        .hasAvatar(p.getAvatar() != null)
+                        .hasAvatar(p.getAvatar() != null && p.getAvatar().length > 0)
                         .build();
             }
 
@@ -146,6 +144,7 @@ public class UserProfileService {
     /**
      * Обновление профиля клиента.
      */
+    @Transactional
     public UserProfileResponse updateCurrentProfile(
             UUID userId,
             UpdateUserProfileRequest request
@@ -157,22 +156,29 @@ public class UserProfileService {
                         "Профиль пользователя не найден"
                 ));
 
+        House house = houseRepository.findById(request.getHouseId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Дом не найден"
+                ));
+
         profile.setFirstName(request.getFirstName());
         profile.setLastName(request.getLastName());
         profile.setMiddleName(request.getMiddleName());
         profile.setPhone(request.getPhone());
 
-        profile.setCity(request.getCity());
-        profile.setStreet(request.getStreet());
-        profile.setHouse(request.getHouse());
+        profile.setHouse(house);
         profile.setApartment(request.getApartment());
 
-        return map(userRepository.save(profile), "CLIENT");
+        userRepository.save(profile);
+
+        return map(profile, "CLIENT");
     }
 
     /**
      * Загрузить или заменить фото профиля.
      */
+    @Transactional
     public void uploadAvatar(
             UUID userId,
             String role,
@@ -233,7 +239,6 @@ public class UserProfileService {
             );
         }
     }
-
     /**
      * Получить фото профиля.
      */
@@ -282,7 +287,26 @@ public class UserProfileService {
      */
     private UserProfileResponse map(UserProfile profile, String role) {
 
-        System.out.println("AVATAR = " + profile.getAvatar());
+        UUID houseId = null;
+        String city = null;
+        String street = null;
+        String house = null;
+
+        if (profile.getHouse() != null) {
+            houseId = profile.getHouse().getId();
+            house = profile.getHouse().getNumber();
+
+            if (profile.getHouse().getStreet() != null) {
+                street = profile.getHouse().getStreet().getName();
+
+                if (profile.getHouse().getStreet().getCity() != null) {
+                    city = profile.getHouse().getStreet().getCity().getName();
+                }
+            }
+        }
+
+        boolean hasAvatar = profile.getAvatar() != null
+                && profile.getAvatar().length > 0;
 
         return UserProfileResponse.builder()
                 .id(profile.getId())
@@ -291,13 +315,17 @@ public class UserProfileService {
                 .lastName(profile.getLastName())
                 .middleName(profile.getMiddleName())
                 .phone(profile.getPhone())
-                .city(profile.getCity())
-                .street(profile.getStreet())
-                .house(profile.getHouse())
+
+                // Адрес
+                .houseId(houseId)
+                .city(city)
+                .street(street)
+                .house(house)
                 .apartment(profile.getApartment())
-                .zoneId(profile.getZoneId())
-                .hasAvatar(profile.getAvatar() != null)
+
+                // Общие поля
                 .role(role)
+                .hasAvatar(hasAvatar)
                 .build();
     }
 }

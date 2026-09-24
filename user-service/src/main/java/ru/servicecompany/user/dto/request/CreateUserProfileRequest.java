@@ -2,18 +2,15 @@ package ru.servicecompany.user.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.UUID;
 
-/**
- * Запрос на создание профиля.
- * Используется только между микросервисами.
- */
-@Data
+@Getter
+@Setter
 public class CreateUserProfileRequest {
 
-    /** UUID пользователя из auth-service */
     @NotNull
     private UUID authUserId;
 
@@ -27,4 +24,9 @@ public class CreateUserProfileRequest {
 
     @NotBlank
     private String phone;
+
+    @NotNull
+    private UUID houseId;
+
+    private String apartment;
 }

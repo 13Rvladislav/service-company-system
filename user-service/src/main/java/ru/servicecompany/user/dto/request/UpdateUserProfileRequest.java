@@ -1,32 +1,29 @@
 package ru.servicecompany.user.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.UUID;
 
 @Getter
 @Setter
 public class UpdateUserProfileRequest {
 
-    @NotBlank(message = "Имя обязательно")
+    @NotBlank
     private String firstName;
 
-    @NotBlank(message = "Фамилия обязательна")
+    @NotBlank
     private String lastName;
 
     private String middleName;
 
-    @NotBlank(message = "Телефон обязателен")
+    @NotBlank
     private String phone;
 
-    @NotBlank(message = "Город обязателен")
-    private String city;
-
-    @NotBlank(message = "Улица обязательна")
-    private String street;
-
-    @NotBlank(message = "Дом обязателен")
-    private String house;
+    @NotNull
+    private UUID houseId;
 
     private String apartment;
 }

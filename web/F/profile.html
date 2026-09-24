@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Мой профиль</title>
+    <link rel="stylesheet" href="profile.css">
+</head>
+<body>
+<div class="profile-card">
+
+    <div class="profile-header">
+
+        <div class="avatar-block">
+
+            <img id="avatar" src="/images/default-avatar.png" alt="Аватар">
+
+            <button type="button" id="uploadAvatar">
+                Изменить фото
+            </button>
+
+            <input
+                    type="file"
+                    id="avatarInput"
+                    accept="image/*"
+                    hidden>
+
+        </div>
+
+        <div class="profile-info">
+            <h2 id="fullName">Загрузка...</h2>
+            <p id="email"></p>
+            <span class="role" id="role"></span>
+
+            <button id="editBtn">Редактировать профиль</button>
+            <button id="saveBtn" style="display:none;">Сохранить</button>
+        </div>
+
+    </div>
+
+    <hr>
+
+    <h3>Личные данные</h3>
+
+    <div class="grid">
+
+        <div>
+            <label>Фамилия</label>
+            <input id="lastName" disabled>
+        </div>
+
+        <div>
+            <label>Имя</label>
+            <input id="firstName" disabled>
+        </div>
+
+        <div>
+            <label>Отчество</label>
+            <input id="middleName" disabled>
+        </div>
+
+        <div>
+            <label>Телефон</label>
+            <input id="phone" disabled>
+        </div>
+
+    </div>
+
+    <h3>Адрес проживания</h3>
+
+    <div class="grid">
+
+        <div>
+            <label>Город</label>
+            <select id="city" disabled></select>
+        </div>
+
+        <div>
+            <label>Улица</label>
+            <select id="street" disabled></select>
+        </div>
+
+        <div>
+            <label>Дом</label>
+            <select id="house" disabled></select>
+        </div>
+
+        <div>
+            <label>Квартира</label>
+            <input id="apartment" disabled>
+        </div>
+
+    </div>
+
+</div>
+
+<script src="profile.js"></script>
