@@ -3,36 +3,29 @@ package ru.servicecompany.user.config;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
+import java.util.Date;
 
-/**
- * Сервис проверки JWT токена.
- * User-service не выпускает токены, а только валидирует их.
- */
 @Service
-@RequiredArgsConstructor
 public class JwtService {
 
-    private final JwtProperties jwtProperties;
+    private final SecretKey signingKey;
 
-    /**
-     * Получение секретного ключа.
-     */
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(
-                jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8)
+    public JwtService(@Value("${jwt.secret}") String secret) {
+        this.signingKey = Keys.hmacShaKeyFor(
+                secret.getBytes(StandardCharsets.UTF_8)
         );
     }
 
-    /**
-     * Извлечь все claims из токена.
-     */
-    private Claims getClaims(String token) {
+    private SecretKey getSigningKey() {
+        return signingKey;
+    }
+
+    public Claims getClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
@@ -40,29 +33,20 @@ public class JwtService {
                 .getPayload();
     }
 
-    /**
-     * UUID пользователя из subject.
-     */
-    public UUID extractUserId(String token) {
-        return UUID.fromString(getClaims(token).getSubject());
-    }
-
-    /**
-     * Роль пользователя.
-     */
-    public String extractRole(String token) {
-        return getClaims(token).get("role", String.class);
-    }
-
-    /**
-     * Проверка подписи и срока действия.
-     */
-    public boolean isValid(String token) {
+    public boolean isTokenValid(String token) {
         try {
-            getClaims(token);
-            return true;
-        } catch (Exception ex) {
+            Date expiration = getClaims(token).getExpiration();
+            return expiration.after(new Date());
+        } catch (Exception e) {
             return false;
         }
+    }
+
+    public String extractEmail(String token) {
+        return getClaims(token).get("email", String.class);
+    }
+
+    public String extractRole(String token) {
+        return getClaims(token).get("role", String.class);
     }
 }

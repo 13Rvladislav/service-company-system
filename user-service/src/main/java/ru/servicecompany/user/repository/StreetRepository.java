@@ -11,6 +11,7 @@ public interface StreetRepository extends JpaRepository<Street, UUID> {
 
     List<Street> findByCity(City city);
 
-    boolean existsByNameAndCity(String name, City city);
+    List<Street> findByCityIdOrderByNameAsc(UUID cityId);
 
+    boolean existsByZoneId(UUID zoneId);
 }

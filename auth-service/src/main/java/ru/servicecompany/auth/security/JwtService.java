@@ -20,9 +20,6 @@ public class JwtService {
         this.jwtProperties = jwtProperties;
     }
 
-    /**
-     * Создаём ключ подписи из secret.
-     */
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(
                 jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8)
@@ -30,7 +27,7 @@ public class JwtService {
     }
 
     /**
-     * Генерация JWT.
+     * Генерация JWT
      */
     public String generateToken(User user) {
 
@@ -38,26 +35,20 @@ public class JwtService {
         Date expiration = new Date(now.getTime() + jwtProperties.getExpiration());
 
         return Jwts.builder()
-                // UUID пользователя
                 .subject(user.getId().toString())
-
-                // дополнительные данные
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().getName().name())
-
                 .issuer("service-company-system")
                 .issuedAt(now)
                 .expiration(expiration)
-
                 .signWith(getSigningKey())
                 .compact();
     }
 
     /**
-     * Получаем все данные из токена.
+     * Все claims
      */
-    private Claims extractAllClaims(String token) {
-
+    public Claims getClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
@@ -65,28 +56,21 @@ public class JwtService {
                 .getPayload();
     }
 
-    /**
-     * Получаем email пользователя.
-     */
     public String extractEmail(String token) {
         return getClaims(token).get("email", String.class);
     }
 
-    /**
-     * Проверяем, что токен не просрочен.
-     */
-    public boolean isTokenValid(String token) {
-
-        Date expiration = extractAllClaims(token).getExpiration();
-
-        return expiration.after(new Date());
+    public String extractRole(String token) {
+        return getClaims(token).get("role", String.class);
     }
 
-    private Claims getClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    public boolean isTokenValid(String token) {
+        try {
+            return getClaims(token)
+                    .getExpiration()
+                    .after(new Date());
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

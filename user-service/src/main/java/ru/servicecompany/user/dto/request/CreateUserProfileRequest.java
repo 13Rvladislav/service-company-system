@@ -25,8 +25,4 @@ public class CreateUserProfileRequest {
     @NotBlank
     private String phone;
 
-    @NotNull
-    private UUID houseId;
-
-    private String apartment;
 }

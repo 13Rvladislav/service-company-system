@@ -1,6 +1,7 @@
 package ru.servicecompany.auth.common.handler;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,7 +15,7 @@ import java.time.LocalDateTime;
 public class GlobalExceptionHandler {
 
     /**
-     * Все наши бизнес-ошибки
+     * Наши бизнес-ошибки
      */
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(
@@ -22,61 +23,64 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
 
-        ErrorResponse error = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(ex.getStatus().value())
-                .error(ex.getStatus().getReasonPhrase())
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .build();
+        ex.printStackTrace();
 
-        return ResponseEntity
-                .status(ex.getStatus())
-                .body(error);
+        return ResponseEntity.status(ex.getStatus())
+                .body(ErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(ex.getStatus().value())
+                        .error(ex.getStatus().getReasonPhrase())
+                        .message(ex.getMessage())
+                        .path(request.getRequestURI())
+                        .build());
     }
 
     /**
      * Ошибки валидации DTO
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> validation(
+    public ResponseEntity<ErrorResponse> handleValidationException(
             MethodArgumentNotValidException ex,
             HttpServletRequest request
     ) {
 
         String message = ex.getBindingResult()
-                .getFieldError()
-                .getDefaultMessage();
+                .getFieldErrors()
+                .stream()
+                .findFirst()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .orElse("Ошибка валидации");
 
-        ErrorResponse error = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(400)
-                .error("Bad Request")
-                .message(message)
-                .path(request.getRequestURI())
-                .build();
+        ex.printStackTrace();
 
-        return ResponseEntity.badRequest().body(error);
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(400)
+                        .error("Bad Request")
+                        .message(message)
+                        .path(request.getRequestURI())
+                        .build());
     }
 
     /**
-     * Любая непредвиденная ошибка
+     * Любые непредвиденные ошибки
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> internal(
+    public ResponseEntity<ErrorResponse> handleException(
             Exception ex,
             HttpServletRequest request
     ) {
 
-        ErrorResponse error = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(500)
-                .error("Internal Server Error")
-                .message("Внутренняя ошибка сервера")
-                .path(request.getRequestURI())
-                .build();
+        ex.printStackTrace();
 
-        return ResponseEntity.internalServerError().body(error);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(500)
+                        .error("Internal Server Error")
+                        .message(ex.getClass().getSimpleName() + ": " + ex.getMessage())
+                        .path(request.getRequestURI())
+                        .build());
     }
-
 }

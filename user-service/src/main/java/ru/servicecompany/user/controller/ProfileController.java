@@ -33,10 +33,7 @@ public class ProfileController {
         JwtUserPrincipal principal =
                 (JwtUserPrincipal) authentication.getPrincipal();
 
-        return userProfileService.getCurrentProfile(
-                principal.userId(),
-                principal.role()
-        );
+        return userProfileService.getCurrentProfile(principal);
     }
 
     /**
@@ -60,9 +57,6 @@ public class ProfileController {
     /**
      * Загрузить или заменить фотографию профиля.
      */
-    /**
-     * Загрузить или заменить фотографию профиля.
-     */
     @PostMapping(
             value = "/me/avatar",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
@@ -70,27 +64,18 @@ public class ProfileController {
     public ResponseEntity<Void> uploadAvatar(
             Authentication authentication,
             @RequestPart("file") MultipartFile file
-    ) {
+    ) throws IOException {
 
-        try {
+        JwtUserPrincipal principal =
+                (JwtUserPrincipal) authentication.getPrincipal();
 
-            JwtUserPrincipal principal =
-                    (JwtUserPrincipal) authentication.getPrincipal();
+        userProfileService.uploadAvatar(
+                principal.userId(),
+                principal.role(),
+                file
+        );
 
-            userProfileService.uploadAvatar(
-                    principal.userId(),
-                    principal.role(),
-                    file
-            );
-
-            return ResponseEntity.ok().build();
-
-        } catch (Exception e) {
-
-            e.printStackTrace();          // <-- ОБЯЗАТЕЛЬНО
-            throw new RuntimeException(e);
-
-        }
+        return ResponseEntity.ok().build();
     }
 
     /**

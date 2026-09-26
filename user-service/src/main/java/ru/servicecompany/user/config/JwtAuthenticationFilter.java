@@ -1,5 +1,6 @@
 package ru.servicecompany.user.config;
 
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -16,10 +17,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * JWT фильтр.
- * Извлекает токен из HttpOnly Cookie или Bearer Header.
- */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -35,13 +32,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = null;
 
-        // =========================
-        // 1. Ищем JWT в Cookie
-        // =========================
         if (request.getCookies() != null) {
-
             for (Cookie cookie : request.getCookies()) {
-
                 if ("access_token".equals(cookie.getName())) {
                     token = cookie.getValue();
                     break;
@@ -49,45 +41,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        // =========================
-        // 2. Если Cookie нет —
-        //    ищем Bearer Header
-        // =========================
-        if (token == null) {
-
-            String header = request.getHeader("Authorization");
-
-            if (header != null && header.startsWith("Bearer ")) {
-                token = header.substring(7);
-            }
-        }
-
-        // Нет токена
-        if (token == null) {
+        if (token == null || token.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Невалидный токен
-        if (!jwtService.isValid(token)) {
+        if (!jwtService.isTokenValid(token)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // =========================
-        // Получаем данные пользователя
-        // =========================
-        UUID userId = jwtService.extractUserId(token);
-        String role = jwtService.extractRole(token);
+        Claims claims = jwtService.getClaims(token);
 
-        JwtUserPrincipal principal =
-                new JwtUserPrincipal(userId, role);
+        JwtUserPrincipal principal = new JwtUserPrincipal(
+                UUID.fromString(claims.getSubject()),
+                claims.get("email", String.class),
+                claims.get("role", String.class)
+        );
 
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         principal,
                         null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                        List.of(
+                                new SimpleGrantedAuthority(
+                                        "ROLE_" + principal.role()
+                                )
+                        )
                 );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
