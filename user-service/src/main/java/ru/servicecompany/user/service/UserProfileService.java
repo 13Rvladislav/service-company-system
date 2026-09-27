@@ -145,32 +145,145 @@ public class UserProfileService {
      */
     @Transactional
     public UserProfileResponse updateCurrentProfile(
-            UUID userId,
+            JwtUserPrincipal principal,
             UpdateUserProfileRequest request
     ) {
 
-        UserProfile profile = userRepository.findByAuthUserId(userId)
-                .orElseThrow(() -> new ApiException(
+        return switch (principal.role()) {
+
+            case "CLIENT" -> {
+
+                UserProfile profile = userRepository.findByAuthUserId(
+                        principal.userId()
+                ).orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
                         "Профиль пользователя не найден"
                 ));
 
-        House house = houseRepository.findById(request.getHouseId())
-                .orElseThrow(() -> new ApiException(
+                if (request.getHouseId() == null) {
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Необходимо выбрать адрес проживания"
+                    );
+                }
+
+                House house = houseRepository.findById(request.getHouseId())
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Дом не найден"
+                        ));
+
+                profile.setFirstName(request.getFirstName());
+                profile.setLastName(request.getLastName());
+                profile.setMiddleName(request.getMiddleName());
+                profile.setPhone(request.getPhone());
+                profile.setHouse(house);
+                profile.setApartment(request.getApartment());
+
+                userRepository.save(profile);
+
+                yield map(profile, principal.role(), principal.email());
+            }
+
+            case "ENGINEER" -> {
+
+                MasterProfile profile = masterRepository.findByAuthUserId(
+                        principal.userId()
+                ).orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
-                        "Дом не найден"
+                        "Профиль мастера не найден"
                 ));
 
-        profile.setFirstName(request.getFirstName());
-        profile.setLastName(request.getLastName());
-        profile.setMiddleName(request.getMiddleName());
-        profile.setPhone(request.getPhone());
-        profile.setHouse(house);
-        profile.setApartment(request.getApartment());
+                profile.setFirstName(request.getFirstName());
+                profile.setLastName(request.getLastName());
+                profile.setMiddleName(request.getMiddleName());
+                profile.setPhone(request.getPhone());
 
-        userRepository.save(profile);
+                masterRepository.save(profile);
 
-        return map(profile, "CLIENT", null);
+                yield UserProfileResponse.builder()
+                        .id(profile.getId())
+                        .authUserId(profile.getAuthUserId())
+                        .firstName(profile.getFirstName())
+                        .lastName(profile.getLastName())
+                        .middleName(profile.getMiddleName())
+                        .email(principal.email())
+                        .phone(profile.getPhone())
+                        .employeeNumber(profile.getEmployeeNumber())
+                        .specialization(profile.getSpecialization())
+                        .status(profile.getStatus().name())
+                        .role(principal.role())
+                        .hasAvatar(profile.getAvatar() != null && profile.getAvatar().length > 0)
+                        .build();
+            }
+
+            case "DISPATCHER" -> {
+
+                DispatcherProfile profile = dispatcherRepository.findByAuthUserId(
+                        principal.userId()
+                ).orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Профиль диспетчера не найден"
+                ));
+
+                profile.setFirstName(request.getFirstName());
+                profile.setLastName(request.getLastName());
+                profile.setMiddleName(request.getMiddleName());
+                profile.setPhone(request.getPhone());
+
+                dispatcherRepository.save(profile);
+
+                yield UserProfileResponse.builder()
+                        .id(profile.getId())
+                        .authUserId(profile.getAuthUserId())
+                        .firstName(profile.getFirstName())
+                        .lastName(profile.getLastName())
+                        .middleName(profile.getMiddleName())
+                        .email(principal.email())
+                        .phone(profile.getPhone())
+                        .employeeNumber(profile.getEmployeeNumber())
+                        .department(profile.getDepartment())
+                        .role(principal.role())
+                        .hasAvatar(profile.getAvatar() != null && profile.getAvatar().length > 0)
+                        .build();
+            }
+
+            case "ADMIN" -> {
+
+                AdminProfile profile = adminRepository.findByAuthUserId(
+                        principal.userId()
+                ).orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Профиль администратора не найден"
+                ));
+
+                profile.setFirstName(request.getFirstName());
+                profile.setLastName(request.getLastName());
+                profile.setMiddleName(request.getMiddleName());
+                profile.setPhone(request.getPhone());
+
+                adminRepository.save(profile);
+
+                yield UserProfileResponse.builder()
+                        .id(profile.getId())
+                        .authUserId(profile.getAuthUserId())
+                        .firstName(profile.getFirstName())
+                        .lastName(profile.getLastName())
+                        .middleName(profile.getMiddleName())
+                        .email(principal.email())
+                        .phone(profile.getPhone())
+                        .employeeNumber(profile.getEmployeeNumber())
+                        .position(profile.getPosition())
+                        .role(principal.role())
+                        .hasAvatar(profile.getAvatar() != null && profile.getAvatar().length > 0)
+                        .build();
+            }
+
+            default -> throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Неизвестная роль"
+            );
+        };
     }
 
     /**
@@ -286,22 +399,20 @@ public class UserProfileService {
             String email
     ) {
 
+        UUID cityId = null;
+        UUID streetId = null;
         UUID houseId = null;
-        String city = null;
-        String street = null;
-        String house = null;
 
         if (profile.getHouse() != null) {
 
             houseId = profile.getHouse().getId();
-            house = profile.getHouse().getNumber();
 
             if (profile.getHouse().getStreet() != null) {
 
-                street = profile.getHouse().getStreet().getName();
+                streetId = profile.getHouse().getStreet().getId();
 
                 if (profile.getHouse().getStreet().getCity() != null) {
-                    city = profile.getHouse().getStreet().getCity().getName();
+                    cityId = profile.getHouse().getStreet().getCity().getId();
                 }
             }
         }
@@ -320,10 +431,9 @@ public class UserProfileService {
                 .email(email)
                 .phone(profile.getPhone())
 
+                .cityId(cityId)
+                .streetId(streetId)
                 .houseId(houseId)
-                .city(city)
-                .street(street)
-                .house(house)
                 .apartment(profile.getApartment())
 
                 .role(role)

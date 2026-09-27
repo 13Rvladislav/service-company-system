@@ -3,9 +3,7 @@ package ru.servicecompany.user.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import ru.servicecompany.user.dto.request.CreateCityRequest;
-import ru.servicecompany.user.dto.request.CreateHouseRequest;
-import ru.servicecompany.user.dto.request.CreateStreetRequest;
+import ru.servicecompany.user.dto.request.*;
 import ru.servicecompany.user.dto.response.CityResponse;
 import ru.servicecompany.user.dto.response.HouseResponse;
 import ru.servicecompany.user.dto.response.StreetResponse;
@@ -71,5 +69,45 @@ public class AddressController {
             @PathVariable UUID streetId
     ) {
         return addressService.getHouses(streetId);
+    }
+
+
+    @PutMapping("/cities/{id}")
+    public CityResponse updateCity(
+            @PathVariable UUID id,
+            @RequestBody @Valid UpdateCityRequest request
+    ) {
+        return addressService.updateCity(id, request);
+    }
+
+    @DeleteMapping("/cities/{id}")
+    public void deleteCity(@PathVariable UUID id) {
+        addressService.deleteCity(id);
+    }
+
+    @PutMapping("/streets/{id}")
+    public StreetResponse updateStreet(
+            @PathVariable UUID id,
+            @RequestBody @Valid UpdateStreetRequest request
+    ) {
+        return addressService.updateStreet(id, request);
+    }
+
+    @DeleteMapping("/streets/{id}")
+    public void deleteStreet(@PathVariable UUID id) {
+        addressService.deleteStreet(id);
+    }
+
+    @PutMapping("/houses/{id}")
+    public HouseResponse updateHouse(
+            @PathVariable UUID id,
+            @RequestBody @Valid UpdateHouseRequest request
+    ) {
+        return addressService.updateHouse(id, request);
+    }
+
+    @DeleteMapping("/houses/{id}")
+    public void deleteHouse(@PathVariable UUID id) {
+        addressService.deleteHouse(id);
     }
 }

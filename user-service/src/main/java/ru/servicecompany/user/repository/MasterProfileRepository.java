@@ -11,6 +11,4 @@ public interface MasterProfileRepository extends JpaRepository<MasterProfile, UU
     Optional<MasterProfile> findByAuthUserId(UUID authUserId);
 
     boolean existsByAuthUserId(UUID authUserId);
-
-    boolean existsByEmployeeNumber(String employeeNumber);
 }

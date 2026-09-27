@@ -46,31 +46,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (!jwtService.isTokenValid(token)) {
-            filterChain.doFilter(request, response);
-            return;
+        try {
+
+            Claims claims = jwtService.extractClaims(token);
+
+            UUID userId = UUID.fromString(claims.getSubject());
+            String email = claims.get("email", String.class);
+            String role = claims.get("role", String.class);
+
+            JwtUserPrincipal principal = new JwtUserPrincipal(
+                    userId,
+                    email,
+                    role
+            );
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            principal,
+                            null,
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                    );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        } catch (Exception ignored) {
+            SecurityContextHolder.clearContext();
         }
-
-        Claims claims = jwtService.getClaims(token);
-
-        JwtUserPrincipal principal = new JwtUserPrincipal(
-                UUID.fromString(claims.getSubject()),
-                claims.get("email", String.class),
-                claims.get("role", String.class)
-        );
-
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(
-                        principal,
-                        null,
-                        List.of(
-                                new SimpleGrantedAuthority(
-                                        "ROLE_" + principal.role()
-                                )
-                        )
-                );
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         filterChain.doFilter(request, response);
     }

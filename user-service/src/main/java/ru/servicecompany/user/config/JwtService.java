@@ -33,6 +33,14 @@ public class JwtService {
                 .getPayload();
     }
 
+    public Claims extractClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
     public boolean isTokenValid(String token) {
         try {
             Date expiration = getClaims(token).getExpiration();

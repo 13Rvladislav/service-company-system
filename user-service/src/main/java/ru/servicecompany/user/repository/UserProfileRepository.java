@@ -8,13 +8,9 @@ import java.util.UUID;
 
 public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> {
 
-    /**
-     * Поиск профиля по UUID пользователя из auth-service.
-     */
     Optional<UserProfile> findByAuthUserId(UUID authUserId);
 
-    /**
-     * Проверка существования профиля.
-     */
     boolean existsByAuthUserId(UUID authUserId);
+
+    boolean existsByHouse_Id(UUID houseId);
 }

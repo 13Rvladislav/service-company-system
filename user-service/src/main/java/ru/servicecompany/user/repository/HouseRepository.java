@@ -10,5 +10,5 @@ import java.util.UUID;
 public interface HouseRepository extends JpaRepository<House, UUID> {
 
     List<House> findByStreet(Street street);
-
+    boolean existsByStreetId(UUID streetId);
 }

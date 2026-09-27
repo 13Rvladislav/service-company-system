@@ -12,11 +12,6 @@ import ru.servicecompany.user.dto.request.UpdateUserProfileRequest;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
 import ru.servicecompany.user.service.UserProfileService;
 
-import java.io.IOException;
-
-/**
- * Работа с профилем текущего пользователя.
- */
 @RestController
 @RequestMapping("/api/profile")
 @RequiredArgsConstructor
@@ -49,13 +44,13 @@ public class ProfileController {
                 (JwtUserPrincipal) authentication.getPrincipal();
 
         return userProfileService.updateCurrentProfile(
-                principal.userId(),
+                principal,
                 request
         );
     }
 
     /**
-     * Загрузить или заменить фотографию профиля.
+     * Загрузить фотографию.
      */
     @PostMapping(
             value = "/me/avatar",
@@ -64,7 +59,7 @@ public class ProfileController {
     public ResponseEntity<Void> uploadAvatar(
             Authentication authentication,
             @RequestPart("file") MultipartFile file
-    ) throws IOException {
+    ) throws Exception {
 
         JwtUserPrincipal principal =
                 (JwtUserPrincipal) authentication.getPrincipal();
@@ -79,7 +74,7 @@ public class ProfileController {
     }
 
     /**
-     * Получить фотографию текущего пользователя.
+     * Получить фотографию.
      */
     @GetMapping(
             value = "/me/avatar",
