@@ -135,7 +135,8 @@ public class AuthService {
                         "Роль не найдена"
                 ));
 
-        String temporaryPassword = generateTemporaryPassword();
+        String temporaryPassword =
+                generateTemporaryPassword();
 
         User user = new User();
 
@@ -144,25 +145,40 @@ public class AuthService {
         user.setMiddleName(request.getMiddleName());
         user.setPhone(request.getPhone());
         user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(temporaryPassword));
+        user.setPassword(
+                passwordEncoder.encode(temporaryPassword)
+        );
         user.setRole(role);
 
         /*
-         * Сначала создаём пользователя в auth-service.
+         * Создаём нового пользователя.
          */
         userRepository.save(user);
 
-        /*
-         * После этого отправляем событие в Kafka.
-         *
-         * user-service сам определит,
-         * какой профиль необходимо создать,
-         * исходя из роли.
-         */
-        userProfileProducer.sendEmployeeProfileCreate(
-                user,
-                request
-        );
+        try {
+
+            /*
+             * Отправляем событие создания профиля.
+             */
+            userProfileProducer.sendEmployeeProfileCreate(
+                    user,
+                    request
+            );
+
+        } catch (Exception e) {
+
+            /*
+             * Событие не удалось отправить.
+             *
+             * User был создан только этой операцией,
+             * поэтому его можно удалить.
+             */
+            userRepository.deleteById(
+                    user.getId()
+            );
+
+            throw e;
+        }
 
         return new CreateEmployeeResponse(
                 user.getEmail(),

@@ -1,5 +1,6 @@
 package ru.servicecompany.user.kafka;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -11,7 +12,6 @@ import ru.servicecompany.user.dto.request.CreateUserProfileRequest;
 import ru.servicecompany.user.kafka.event.UserProfileCreateEvent;
 import ru.servicecompany.user.service.InternalProfileService;
 import ru.servicecompany.user.service.UserProfileService;
-import jakarta.annotation.PostConstruct;
 
 @Slf4j
 @Component
@@ -20,6 +20,7 @@ public class UserProfileConsumer {
 
     private final UserProfileService userProfileService;
     private final InternalProfileService internalProfileService;
+    private final ProfileResultProducer profileResultProducer;
 
     @KafkaListener(
             topics = KafkaTopics.USER_PROFILE_CREATE,
@@ -51,38 +52,105 @@ public class UserProfileConsumer {
             );
         }
 
-        switch (event.getRole()) {
+        try {
 
-            case "CLIENT" -> createClient(event);
+            switch (event.getRole()) {
 
-            case "ENGINEER" -> createEngineer(event);
+                case "CLIENT" -> createClient(event);
 
-            case "DISPATCHER" -> createDispatcher(event);
+                case "ENGINEER" -> createEngineer(event);
 
-            case "ADMIN" -> createAdmin(event);
+                case "DISPATCHER" -> createDispatcher(event);
 
-            default -> throw new IllegalArgumentException(
-                    "Неизвестная роль: " + event.getRole()
+                case "ADMIN" -> createAdmin(event);
+
+                default -> throw new IllegalArgumentException(
+                        "Неизвестная роль: " + event.getRole()
+                );
+            }
+
+            log.info("========================================");
+            log.info("PROFILE CREATED SUCCESSFULLY");
+            log.info("authUserId = {}", event.getAuthUserId());
+            log.info("role      = {}", event.getRole());
+            log.info("========================================");
+
+        } catch (Exception e) {
+
+            log.error(
+                    "========================================"
             );
-        }
 
-        log.info("========================================");
-        log.info("PROFILE CREATED SUCCESSFULLY");
-        log.info("authUserId = {}", event.getAuthUserId());
-        log.info("role      = {}", event.getRole());
-        log.info("========================================");
+            log.error(
+                    "PROFILE CREATION FAILED"
+            );
+
+            log.error(
+                    "authUserId = {}",
+                    event.getAuthUserId()
+            );
+
+            log.error(
+                    "role = {}",
+                    event.getRole()
+            );
+
+            log.error(
+                    "reason = {}",
+                    e.getMessage(),
+                    e
+            );
+
+            log.error(
+                    "========================================"
+            );
+
+            profileResultProducer.profileFailed(
+                    event.getAuthUserId(),
+                    e.getMessage() != null
+                            ? e.getMessage()
+                            : "Неизвестная ошибка создания профиля"
+            );
+
+            /*
+             * ВАЖНО:
+             *
+             * Здесь не бросаем exception дальше.
+             *
+             * Иначе Kafka снова отправит сообщение
+             * на retry, и rollback-событие будет отправляться
+             * несколько раз.
+             */
+            return;
+        }
     }
 
-    private void createClient(UserProfileCreateEvent event) {
+    private void createClient(
+            UserProfileCreateEvent event
+    ) {
 
         CreateUserProfileRequest request =
                 new CreateUserProfileRequest();
 
-        request.setAuthUserId(event.getAuthUserId());
-        request.setFirstName(event.getFirstName());
-        request.setLastName(event.getLastName());
-        request.setMiddleName(event.getMiddleName());
-        request.setPhone(event.getPhone());
+        request.setAuthUserId(
+                event.getAuthUserId()
+        );
+
+        request.setFirstName(
+                event.getFirstName()
+        );
+
+        request.setLastName(
+                event.getLastName()
+        );
+
+        request.setMiddleName(
+                event.getMiddleName()
+        );
+
+        request.setPhone(
+                event.getPhone()
+        );
 
         log.info(
                 "Создание CLIENT profile: authUserId={}",
@@ -92,19 +160,44 @@ public class UserProfileConsumer {
         userProfileService.create(request);
     }
 
-    private void createEngineer(UserProfileCreateEvent event) {
+    private void createEngineer(
+            UserProfileCreateEvent event
+    ) {
 
         CreateMasterProfileRequest request =
                 new CreateMasterProfileRequest();
 
-        request.setAuthUserId(event.getAuthUserId());
-        request.setFirstName(event.getFirstName());
-        request.setLastName(event.getLastName());
-        request.setMiddleName(event.getMiddleName());
-        request.setPhone(event.getPhone());
-        request.setEmployeeNumber(event.getEmployeeNumber());
-        request.setSpecialization(event.getSpecialization());
-        request.setZoneId(event.getZoneId());
+        request.setAuthUserId(
+                event.getAuthUserId()
+        );
+
+        request.setFirstName(
+                event.getFirstName()
+        );
+
+        request.setLastName(
+                event.getLastName()
+        );
+
+        request.setMiddleName(
+                event.getMiddleName()
+        );
+
+        request.setPhone(
+                event.getPhone()
+        );
+
+        request.setEmployeeNumber(
+                event.getEmployeeNumber()
+        );
+
+        request.setSpecialization(
+                event.getSpecialization()
+        );
+
+        request.setZoneId(
+                event.getZoneId()
+        );
 
         log.info(
                 "Создание ENGINEER profile: authUserId={}, zoneId={}",
@@ -115,18 +208,40 @@ public class UserProfileConsumer {
         internalProfileService.createMaster(request);
     }
 
-    private void createDispatcher(UserProfileCreateEvent event) {
+    private void createDispatcher(
+            UserProfileCreateEvent event
+    ) {
 
         CreateDispatcherProfileRequest request =
                 new CreateDispatcherProfileRequest();
 
-        request.setAuthUserId(event.getAuthUserId());
-        request.setFirstName(event.getFirstName());
-        request.setLastName(event.getLastName());
-        request.setMiddleName(event.getMiddleName());
-        request.setPhone(event.getPhone());
-        request.setEmployeeNumber(event.getEmployeeNumber());
-        request.setDepartment(event.getDepartment());
+        request.setAuthUserId(
+                event.getAuthUserId()
+        );
+
+        request.setFirstName(
+                event.getFirstName()
+        );
+
+        request.setLastName(
+                event.getLastName()
+        );
+
+        request.setMiddleName(
+                event.getMiddleName()
+        );
+
+        request.setPhone(
+                event.getPhone()
+        );
+
+        request.setEmployeeNumber(
+                event.getEmployeeNumber()
+        );
+
+        request.setDepartment(
+                event.getDepartment()
+        );
 
         log.info(
                 "Создание DISPATCHER profile: authUserId={}",
@@ -136,18 +251,40 @@ public class UserProfileConsumer {
         internalProfileService.createDispatcher(request);
     }
 
-    private void createAdmin(UserProfileCreateEvent event) {
+    private void createAdmin(
+            UserProfileCreateEvent event
+    ) {
 
         CreateAdminProfileRequest request =
                 new CreateAdminProfileRequest();
 
-        request.setAuthUserId(event.getAuthUserId());
-        request.setFirstName(event.getFirstName());
-        request.setLastName(event.getLastName());
-        request.setMiddleName(event.getMiddleName());
-        request.setPhone(event.getPhone());
-        request.setEmployeeNumber(event.getEmployeeNumber());
-        request.setPosition(event.getPosition());
+        request.setAuthUserId(
+                event.getAuthUserId()
+        );
+
+        request.setFirstName(
+                event.getFirstName()
+        );
+
+        request.setLastName(
+                event.getLastName()
+        );
+
+        request.setMiddleName(
+                event.getMiddleName()
+        );
+
+        request.setPhone(
+                event.getPhone()
+        );
+
+        request.setEmployeeNumber(
+                event.getEmployeeNumber()
+        );
+
+        request.setPosition(
+                event.getPosition()
+        );
 
         log.info(
                 "Создание ADMIN profile: authUserId={}",
@@ -159,10 +296,16 @@ public class UserProfileConsumer {
 
     @PostConstruct
     public void init() {
+
         log.info("========================================");
         log.info("USER PROFILE KAFKA CONSUMER INITIALIZED");
-        log.info("Topic: {}", KafkaTopics.USER_PROFILE_CREATE);
-        log.info("Group: user-service-group");
+        log.info(
+                "Topic: {}",
+                KafkaTopics.USER_PROFILE_CREATE
+        );
+        log.info(
+                "Group: user-service-group"
+        );
         log.info("========================================");
     }
 }
