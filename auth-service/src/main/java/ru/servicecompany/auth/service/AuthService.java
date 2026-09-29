@@ -12,6 +12,7 @@ import ru.servicecompany.auth.dto.response.UserResponse;
 import ru.servicecompany.auth.entity.Role;
 import ru.servicecompany.auth.entity.RoleName;
 import ru.servicecompany.auth.entity.User;
+import ru.servicecompany.auth.kafka.UserProfileProducer;
 import ru.servicecompany.auth.repository.RoleRepository;
 import ru.servicecompany.auth.repository.UserRepository;
 import ru.servicecompany.auth.security.JwtService;
@@ -27,7 +28,7 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final UserServiceClient userServiceClient;
+    private final UserProfileProducer userProfileProducer;
 
     /**
      * Регистрация клиента.
@@ -35,13 +36,17 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new ApiException(HttpStatus.CONFLICT,
-                    "Пользователь с таким Email уже существует");
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Пользователь с таким Email уже существует"
+            );
         }
 
         if (userRepository.existsByPhone(request.getPhone())) {
-            throw new ApiException(HttpStatus.CONFLICT,
-                    "Пользователь с таким телефоном уже существует");
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Пользователь с таким телефоном уже существует"
+            );
         }
 
         Role role = roleRepository.findByName(RoleName.CLIENT)
@@ -55,37 +60,14 @@ public class AuthService {
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setMiddleName(request.getMiddleName());
-
         user.setPhone(request.getPhone());
         user.setEmail(request.getEmail());
-
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(role);
 
         userRepository.save(user);
 
-        try {
-
-            CreateUserProfileRequest profile = new CreateUserProfileRequest();
-
-            profile.setAuthUserId(user.getId());
-            profile.setFirstName(user.getFirstName());
-            profile.setLastName(user.getLastName());
-            profile.setMiddleName(user.getMiddleName());
-            profile.setPhone(user.getPhone());
-
-            userServiceClient.createProfile(profile);
-
-        } catch (Exception e) {
-
-            // Компенсация — удаляем аккаунт
-            userRepository.delete(user);
-
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "Не удалось создать профиль клиента"
-            );
-        }
+        userProfileProducer.sendClientProfileCreate(user);
 
         return map(user);
     }
@@ -105,7 +87,6 @@ public class AuthService {
                 request.getPassword(),
                 user.getPassword()
         )) {
-
             throw new ApiException(
                     HttpStatus.UNAUTHORIZED,
                     "Неверный Email или пароль"
@@ -126,8 +107,13 @@ public class AuthService {
 
     /**
      * Создание сотрудника.
+     *
+     * Аккаунт создаётся в auth-service,
+     * профиль создаётся асинхронно в user-service через Kafka.
      */
-    public CreateEmployeeResponse createEmployee(CreateEmployeeRequest request) {
+    public CreateEmployeeResponse createEmployee(
+            CreateEmployeeRequest request
+    ) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new ApiException(
@@ -156,96 +142,27 @@ public class AuthService {
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setMiddleName(request.getMiddleName());
-
         user.setPhone(request.getPhone());
         user.setEmail(request.getEmail());
-
         user.setPassword(passwordEncoder.encode(temporaryPassword));
         user.setRole(role);
 
-        // Сначала сохраняем аккаунт
+        /*
+         * Сначала создаём пользователя в auth-service.
+         */
         userRepository.save(user);
 
-        try {
-
-            switch (request.getRole()) {
-
-                case ENGINEER -> {
-
-                    CreateMasterProfileRequest profile =
-                            new CreateMasterProfileRequest();
-
-                    profile.setAuthUserId(user.getId());
-                    profile.setFirstName(user.getFirstName());
-                    profile.setLastName(user.getLastName());
-                    profile.setMiddleName(user.getMiddleName());
-                    profile.setPhone(user.getPhone());
-
-                    profile.setEmployeeNumber(request.getEmployeeNumber());
-                    profile.setSpecialization(request.getSpecialization());
-
-                    if (request.getZoneId() != null &&
-                            !request.getZoneId().isBlank()) {
-
-                        profile.setZoneId(
-                                UUID.fromString(request.getZoneId())
-                        );
-                    }
-
-                    userServiceClient.createMasterProfile(profile);
-                }
-
-                case DISPATCHER -> {
-
-                    CreateDispatcherProfileRequest profile =
-                            new CreateDispatcherProfileRequest();
-
-                    profile.setAuthUserId(user.getId());
-                    profile.setFirstName(user.getFirstName());
-                    profile.setLastName(user.getLastName());
-                    profile.setMiddleName(user.getMiddleName());
-                    profile.setPhone(user.getPhone());
-
-                    profile.setEmployeeNumber(request.getEmployeeNumber());
-                    profile.setDepartment(request.getDepartment());
-
-                    userServiceClient.createDispatcherProfile(profile);
-                }
-
-                case ADMIN -> {
-
-                    CreateAdminProfileRequest profile =
-                            new CreateAdminProfileRequest();
-
-                    profile.setAuthUserId(user.getId());
-                    profile.setFirstName(user.getFirstName());
-                    profile.setLastName(user.getLastName());
-                    profile.setMiddleName(user.getMiddleName());
-                    profile.setPhone(user.getPhone());
-
-                    profile.setEmployeeNumber(request.getEmployeeNumber());
-                    profile.setPosition(request.getPosition());
-
-                    userServiceClient.createAdminProfile(profile);
-                }
-
-                default -> throw new ApiException(
-                        HttpStatus.BAD_REQUEST,
-                        "Недопустимая роль сотрудника"
-                );
-            }
-
-        } catch (Exception e) {
-
-            // Компенсирующая транзакция:
-            // если профиль не создался — удаляем аккаунт
-            userRepository.delete(user);
-
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "Не удалось создать профиль сотрудника"
-            );
-        }
+        /*
+         * После этого отправляем событие в Kafka.
+         *
+         * user-service сам определит,
+         * какой профиль необходимо создать,
+         * исходя из роли.
+         */
+        userProfileProducer.sendEmployeeProfileCreate(
+                user,
+                request
+        );
 
         return new CreateEmployeeResponse(
                 user.getEmail(),

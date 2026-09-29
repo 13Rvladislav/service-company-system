@@ -24,13 +24,20 @@ spring:
     port: 587
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
-
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
+
+  kafka:
+    bootstrap-servers: localhost:29092
+
+    producer:
+      client-id: auth-service
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
 
 springdoc:
   swagger-ui:

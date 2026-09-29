@@ -19,6 +19,9 @@ spring:
       hibernate:
         format_sql: true
 
+  kafka:
+    bootstrap-servers: localhost:29092
+
 springdoc:
   swagger-ui:
     path: /swagger
@@ -26,3 +29,10 @@ springdoc:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION}
+
+logging:
+  level:
+    org.springframework.kafka: DEBUG
+    org.springframework.kafka.listener: DEBUG
+    org.apache.kafka.clients.consumer: INFO
+    org.apache.kafka.clients.NetworkClient: INFO

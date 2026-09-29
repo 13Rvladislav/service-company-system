@@ -13,6 +13,7 @@ import ru.servicecompany.user.entity.MasterProfile;
 import ru.servicecompany.user.repository.AdminProfileRepository;
 import ru.servicecompany.user.repository.DispatcherProfileRepository;
 import ru.servicecompany.user.repository.MasterProfileRepository;
+import ru.servicecompany.user.repository.ZoneRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -21,26 +22,73 @@ public class InternalProfileService {
     private final MasterProfileRepository masterRepository;
     private final DispatcherProfileRepository dispatcherRepository;
     private final AdminProfileRepository adminRepository;
+    private final ZoneRepository zoneRepository;
 
     /**
      * Создание профиля мастера.
      */
     public void createMaster(CreateMasterProfileRequest request) {
 
-        if (masterRepository.existsByAuthUserId(request.getAuthUserId())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Профиль мастера уже существует");
+        if (masterRepository.existsByAuthUserId(
+                request.getAuthUserId()
+        )) {
+
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Профиль мастера уже существует"
+            );
+        }
+
+        /*
+         * Если зона указана — проверяем,
+         * что такая зона реально существует.
+         */
+        if (request.getZoneId() != null) {
+
+            if (!zoneRepository.existsById(
+                    request.getZoneId()
+            )) {
+
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "Указанная зона не существует"
+                );
+            }
         }
 
         MasterProfile profile = new MasterProfile();
 
-        profile.setAuthUserId(request.getAuthUserId());
-        profile.setFirstName(request.getFirstName());
-        profile.setLastName(request.getLastName());
-        profile.setMiddleName(request.getMiddleName());
-        profile.setPhone(request.getPhone());
-        profile.setEmployeeNumber(request.getEmployeeNumber());
-        profile.setSpecialization(request.getSpecialization());
-        profile.setZoneId(request.getZoneId());
+        profile.setAuthUserId(
+                request.getAuthUserId()
+        );
+
+        profile.setFirstName(
+                request.getFirstName()
+        );
+
+        profile.setLastName(
+                request.getLastName()
+        );
+
+        profile.setMiddleName(
+                request.getMiddleName()
+        );
+
+        profile.setPhone(
+                request.getPhone()
+        );
+
+        profile.setEmployeeNumber(
+                request.getEmployeeNumber()
+        );
+
+        profile.setSpecialization(
+                request.getSpecialization()
+        );
+
+        profile.setZoneId(
+                request.getZoneId()
+        );
 
         masterRepository.save(profile);
     }
@@ -48,21 +96,50 @@ public class InternalProfileService {
     /**
      * Создание профиля диспетчера.
      */
-    public void createDispatcher(CreateDispatcherProfileRequest request) {
+    public void createDispatcher(
+            CreateDispatcherProfileRequest request
+    ) {
 
-        if (dispatcherRepository.existsByAuthUserId(request.getAuthUserId())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Профиль диспетчера уже существует");
+        if (dispatcherRepository.existsByAuthUserId(
+                request.getAuthUserId()
+        )) {
+
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Профиль диспетчера уже существует"
+            );
         }
 
-        DispatcherProfile profile = new DispatcherProfile();
+        DispatcherProfile profile =
+                new DispatcherProfile();
 
-        profile.setAuthUserId(request.getAuthUserId());
-        profile.setFirstName(request.getFirstName());
-        profile.setLastName(request.getLastName());
-        profile.setMiddleName(request.getMiddleName());
-        profile.setPhone(request.getPhone());
-        profile.setEmployeeNumber(request.getEmployeeNumber());
-        profile.setDepartment(request.getDepartment());
+        profile.setAuthUserId(
+                request.getAuthUserId()
+        );
+
+        profile.setFirstName(
+                request.getFirstName()
+        );
+
+        profile.setLastName(
+                request.getLastName()
+        );
+
+        profile.setMiddleName(
+                request.getMiddleName()
+        );
+
+        profile.setPhone(
+                request.getPhone()
+        );
+
+        profile.setEmployeeNumber(
+                request.getEmployeeNumber()
+        );
+
+        profile.setDepartment(
+                request.getDepartment()
+        );
 
         dispatcherRepository.save(profile);
     }
@@ -70,21 +147,50 @@ public class InternalProfileService {
     /**
      * Создание профиля администратора.
      */
-    public void createAdmin(CreateAdminProfileRequest request) {
+    public void createAdmin(
+            CreateAdminProfileRequest request
+    ) {
 
-        if (adminRepository.existsByAuthUserId(request.getAuthUserId())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Профиль администратора уже существует");
+        if (adminRepository.existsByAuthUserId(
+                request.getAuthUserId()
+        )) {
+
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Профиль администратора уже существует"
+            );
         }
 
-        AdminProfile profile = new AdminProfile();
+        AdminProfile profile =
+                new AdminProfile();
 
-        profile.setAuthUserId(request.getAuthUserId());
-        profile.setFirstName(request.getFirstName());
-        profile.setLastName(request.getLastName());
-        profile.setMiddleName(request.getMiddleName());
-        profile.setPhone(request.getPhone());
-        profile.setEmployeeNumber(request.getEmployeeNumber());
-        profile.setPosition(request.getPosition());
+        profile.setAuthUserId(
+                request.getAuthUserId()
+        );
+
+        profile.setFirstName(
+                request.getFirstName()
+        );
+
+        profile.setLastName(
+                request.getLastName()
+        );
+
+        profile.setMiddleName(
+                request.getMiddleName()
+        );
+
+        profile.setPhone(
+                request.getPhone()
+        );
+
+        profile.setEmployeeNumber(
+                request.getEmployeeNumber()
+        );
+
+        profile.setPosition(
+                request.getPosition()
+        );
 
         adminRepository.save(profile);
     }
