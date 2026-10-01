@@ -7,9 +7,11 @@ import ru.servicecompany.user.dto.request.CreateUserProfileRequest;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
 import ru.servicecompany.user.service.UserProfileService;
 
+import java.util.UUID;
+
 /**
  * Внутренние endpoint'ы.
- * Используются только другими микросервисами.
+ * Используются другими микросервисами.
  */
 @RestController
 @RequestMapping("/internal/users")
@@ -26,5 +28,20 @@ public class InternalUserController {
             @RequestBody @Valid CreateUserProfileRequest request
     ) {
         return service.create(request);
+    }
+
+    /**
+     * Получение профиля пользователя
+     * по authUserId и роли.
+     */
+    @GetMapping("/{authUserId}")
+    public UserProfileResponse getProfile(
+            @PathVariable UUID authUserId,
+            @RequestParam String role
+    ) {
+        return service.getProfileByAuthUserId(
+                authUserId,
+                role
+        );
     }
 }

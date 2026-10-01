@@ -2,8 +2,10 @@ package ru.servicecompany.auth.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import ru.servicecompany.auth.entity.RoleName;
 import ru.servicecompany.auth.entity.User;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,7 +19,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     // Встречается ли номер email
     boolean existsByPhone(String phone);
-
+    // поиск по роли
+    List<User> findAllByRole_Name(RoleName roleName);
 
     @Query("""
     SELECT u

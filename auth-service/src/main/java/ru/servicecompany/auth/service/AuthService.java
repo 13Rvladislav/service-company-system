@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import ru.servicecompany.auth.common.exception.ApiException;
 import ru.servicecompany.auth.dto.request.*;
+import ru.servicecompany.auth.dto.response.AdminUserResponse;
 import ru.servicecompany.auth.dto.response.CreateEmployeeResponse;
 import ru.servicecompany.auth.dto.response.LoginResponse;
 import ru.servicecompany.auth.dto.response.UserResponse;
@@ -18,6 +19,7 @@ import ru.servicecompany.auth.repository.UserRepository;
 import ru.servicecompany.auth.security.JwtService;
 
 import java.security.SecureRandom;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -107,7 +109,7 @@ public class AuthService {
 
     /**
      * Создание сотрудника.
-     *
+     * <p>
      * Аккаунт создаётся в auth-service,
      * профиль создаётся асинхронно в user-service через Kafka.
      */
@@ -206,6 +208,23 @@ public class AuthService {
         }
 
         return password.toString();
+    }
+
+    public List<AdminUserResponse> getUsersByRole(RoleName roleName) {
+
+        return userRepository.findAllByRole_Name(roleName)
+                .stream()
+                .map(user -> AdminUserResponse.builder()
+                        .id(user.getId())
+                        .firstName(user.getFirstName())
+                        .lastName(user.getLastName())
+                        .middleName(user.getMiddleName())
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .role(user.getRole().getName().name())
+                        .enabled(user.getEnabled())
+                        .build())
+                .toList();
     }
 
     /**

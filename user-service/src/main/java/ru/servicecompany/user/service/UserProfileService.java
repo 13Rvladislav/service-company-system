@@ -390,6 +390,110 @@ public class UserProfileService {
         };
     }
 
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfileByAuthUserId(
+            UUID authUserId,
+            String role
+    ) {
+
+        return switch (role) {
+
+            case "CLIENT" -> {
+
+                UserProfile profile = userRepository.findByAuthUserId(authUserId)
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Профиль пользователя не найден"
+                        ));
+
+                yield map(profile, role, null);
+            }
+
+            case "ENGINEER" -> {
+
+                MasterProfile profile = masterRepository.findByAuthUserId(authUserId)
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Профиль мастера не найден"
+                        ));
+
+                yield UserProfileResponse.builder()
+                        .id(profile.getId())
+                        .authUserId(profile.getAuthUserId())
+                        .firstName(profile.getFirstName())
+                        .lastName(profile.getLastName())
+                        .middleName(profile.getMiddleName())
+                        .phone(profile.getPhone())
+                        .employeeNumber(profile.getEmployeeNumber())
+                        .specialization(profile.getSpecialization())
+                        .status(profile.getStatus().name())
+                        .role(role)
+                        .hasAvatar(
+                                profile.getAvatar() != null &&
+                                        profile.getAvatar().length > 0
+                        )
+                        .build();
+            }
+
+            case "DISPATCHER" -> {
+
+                DispatcherProfile profile =
+                        dispatcherRepository.findByAuthUserId(authUserId)
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль диспетчера не найден"
+                                ));
+
+                yield UserProfileResponse.builder()
+                        .id(profile.getId())
+                        .authUserId(profile.getAuthUserId())
+                        .firstName(profile.getFirstName())
+                        .lastName(profile.getLastName())
+                        .middleName(profile.getMiddleName())
+                        .phone(profile.getPhone())
+                        .employeeNumber(profile.getEmployeeNumber())
+                        .department(profile.getDepartment())
+                        .role(role)
+                        .hasAvatar(
+                                profile.getAvatar() != null &&
+                                        profile.getAvatar().length > 0
+                        )
+                        .build();
+            }
+
+            case "ADMIN" -> {
+
+                AdminProfile profile =
+                        adminRepository.findByAuthUserId(authUserId)
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль администратора не найден"
+                                ));
+
+                yield UserProfileResponse.builder()
+                        .id(profile.getId())
+                        .authUserId(profile.getAuthUserId())
+                        .firstName(profile.getFirstName())
+                        .lastName(profile.getLastName())
+                        .middleName(profile.getMiddleName())
+                        .phone(profile.getPhone())
+                        .employeeNumber(profile.getEmployeeNumber())
+                        .position(profile.getPosition())
+                        .role(role)
+                        .hasAvatar(
+                                profile.getAvatar() != null &&
+                                        profile.getAvatar().length > 0
+                        )
+                        .build();
+            }
+
+            default -> throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Неизвестная роль"
+            );
+        };
+    }
+
     /**
      * Entity -> Response
      */
