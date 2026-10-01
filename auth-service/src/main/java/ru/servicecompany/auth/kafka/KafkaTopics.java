@@ -2,10 +2,6 @@ package ru.servicecompany.auth.kafka;
 
 /**
  * Все Kafka-топики проекта.
- *
- * Зачем отдельный класс?
- * Чтобы нигде не писать строки вида
- * "user.profile.create" вручную.
  */
 public final class KafkaTopics {
 
@@ -18,4 +14,15 @@ public final class KafkaTopics {
     public static final String USER_PROFILE_CREATE =
             "user.profile.create";
 
+    /**
+     * Запрос профильных данных.
+     */
+    public static final String USER_PROFILE_REQUEST =
+            "user.profile.request";
+
+    /**
+     * Ответ с профильными данными.
+     */
+    public static final String USER_PROFILE_RESPONSE =
+            "user.profile.response";
 }

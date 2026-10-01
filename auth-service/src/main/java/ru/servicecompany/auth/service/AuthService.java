@@ -17,7 +17,14 @@ import ru.servicecompany.auth.kafka.UserProfileProducer;
 import ru.servicecompany.auth.repository.RoleRepository;
 import ru.servicecompany.auth.repository.UserRepository;
 import ru.servicecompany.auth.security.JwtService;
+import ru.servicecompany.auth.dto.response.AdminUserCardResponse;
+import ru.servicecompany.auth.kafka.AdminProfileRequestProducer;
+import ru.servicecompany.auth.kafka.ProfileRequestManager;
+import ru.servicecompany.auth.kafka.event.ProfileResponseEvent;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +38,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserProfileProducer userProfileProducer;
+    private final AdminProfileRequestProducer adminProfileRequestProducer;
+    private final ProfileRequestManager profileRequestManager;
 
     /**
      * Регистрация клиента.
@@ -225,6 +234,114 @@ public class AuthService {
                         .enabled(user.getEnabled())
                         .build())
                 .toList();
+    }
+
+    /**
+     * Получение полной карточки пользователя.
+     * <p>
+     * Данные собираются из:
+     * <p>
+     * auth-service:
+     * - email
+     * - enabled
+     * - основные данные User
+     * <p>
+     * user-service:
+     * - профиль в зависимости от роли
+     */
+    public AdminUserCardResponse getUserCard(UUID userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Пользователь не найден"
+                ));
+
+        String role =
+                user.getRole()
+                        .getName()
+                        .name();
+
+        UUID requestId = UUID.randomUUID();
+
+        CompletableFuture<ProfileResponseEvent> future =
+                profileRequestManager.register(requestId);
+
+        try {
+
+            adminProfileRequestProducer.requestProfile(
+                    requestId,
+                    user.getId(),
+                    role
+            );
+
+            ProfileResponseEvent profile =
+                    future.get(
+                            5,
+                            TimeUnit.SECONDS
+                    );
+
+            return AdminUserCardResponse.builder()
+
+                    .id(user.getId())
+                    .authUserId(profile.getAuthUserId())
+
+                    .firstName(profile.getFirstName())
+                    .lastName(profile.getLastName())
+                    .middleName(profile.getMiddleName())
+
+                    .email(user.getEmail())
+                    .phone(profile.getPhone())
+
+                    .role(role)
+
+                    .enabled(user.getEnabled())
+                    .hasAvatar(profile.getHasAvatar())
+
+                    .cityId(profile.getCityId())
+                    .streetId(profile.getStreetId())
+                    .houseId(profile.getHouseId())
+                    .apartment(profile.getApartment())
+
+                    .employeeNumber(profile.getEmployeeNumber())
+                    .specialization(profile.getSpecialization())
+                    .status(profile.getStatus())
+
+                    .department(profile.getDepartment())
+
+                    .position(profile.getPosition())
+
+                    .build();
+
+        } catch (TimeoutException e) {
+
+            throw new ApiException(
+                    HttpStatus.GATEWAY_TIMEOUT,
+                    "Не удалось получить профиль пользователя"
+            );
+
+        } catch (InterruptedException e) {
+
+            Thread.currentThread().interrupt();
+
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Получение профиля было прервано"
+            );
+
+        } catch (Exception e) {
+
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Ошибка получения профиля пользователя"
+            );
+
+        } finally {
+
+            profileRequestManager.remove(
+                    requestId
+            );
+        }
     }
 
     /**

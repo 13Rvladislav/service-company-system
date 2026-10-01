@@ -10,6 +10,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import ru.servicecompany.auth.kafka.event.ProfileFailedEvent;
+import ru.servicecompany.auth.kafka.event.ProfileResponseEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,14 +19,24 @@ import java.util.Map;
 @EnableKafka
 public class KafkaConsumerConfig {
 
-    private static final String BOOTSTRAP_SERVERS = "localhost:29092";
+    private static final String BOOTSTRAP_SERVERS =
+            "localhost:29092";
 
-    private static final String GROUP_ID = "auth-service-group";
+    private static final String GROUP_ID =
+            "auth-service-group";
+
+    /**
+     * ============================================================
+     * PROFILE FAILED
+     * ============================================================
+     */
 
     @Bean
-    public ConsumerFactory<String, ProfileFailedEvent> profileFailedConsumerFactory() {
+    public ConsumerFactory<String, ProfileFailedEvent>
+    profileFailedConsumerFactory() {
 
-        Map<String, Object> properties = new HashMap<>();
+        Map<String, Object> properties =
+                new HashMap<>();
 
         properties.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -52,8 +63,11 @@ public class KafkaConsumerConfig {
                 StringDeserializer.class
         );
 
-        JacksonJsonDeserializer<ProfileFailedEvent> deserializer =
-                new JacksonJsonDeserializer<>(ProfileFailedEvent.class);
+        JacksonJsonDeserializer<ProfileFailedEvent>
+                deserializer =
+                new JacksonJsonDeserializer<>(
+                        ProfileFailedEvent.class
+                );
 
         deserializer.ignoreTypeHeaders();
 
@@ -70,13 +84,99 @@ public class KafkaConsumerConfig {
     }
 
     @Bean(name = "profileFailedKafkaListenerContainerFactory")
-    public ConcurrentKafkaListenerContainerFactory<String, ProfileFailedEvent>
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            ProfileFailedEvent
+            >
     profileFailedKafkaListenerContainerFactory() {
 
-        ConcurrentKafkaListenerContainerFactory<String, ProfileFailedEvent> factory =
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                ProfileFailedEvent
+                > factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
 
-        factory.setConsumerFactory(profileFailedConsumerFactory());
+        factory.setConsumerFactory(
+                profileFailedConsumerFactory()
+        );
+
+        return factory;
+    }
+
+    /**
+     * ============================================================
+     * PROFILE RESPONSE
+     * ============================================================
+     */
+
+    @Bean
+    public ConsumerFactory<String, ProfileResponseEvent>
+    profileResponseConsumerFactory() {
+
+        Map<String, Object> properties =
+                new HashMap<>();
+
+        properties.put(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                BOOTSTRAP_SERVERS
+        );
+
+        properties.put(
+                ConsumerConfig.GROUP_ID_CONFIG,
+                "auth-profile-response-group"
+        );
+
+        properties.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                "earliest"
+        );
+
+        properties.put(
+                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+                true
+        );
+
+        properties.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class
+        );
+
+        JacksonJsonDeserializer<ProfileResponseEvent>
+                deserializer =
+                new JacksonJsonDeserializer<>(
+                        ProfileResponseEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        deserializer.trustedPackages(
+                "ru.servicecompany.user.kafka.event",
+                "ru.servicecompany.auth.kafka.event"
+        );
+
+        return new DefaultKafkaConsumerFactory<>(
+                properties,
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean(name = "profileResponseKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            ProfileResponseEvent
+            >
+    profileResponseKafkaListenerContainerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                ProfileResponseEvent
+                > factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                profileResponseConsumerFactory()
+        );
 
         return factory;
     }

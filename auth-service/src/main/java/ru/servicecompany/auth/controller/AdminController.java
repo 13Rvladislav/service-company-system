@@ -4,12 +4,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import ru.servicecompany.auth.dto.request.CreateEmployeeRequest;
+import ru.servicecompany.auth.dto.response.AdminUserCardResponse;
 import ru.servicecompany.auth.dto.response.AdminUserResponse;
 import ru.servicecompany.auth.dto.response.CreateEmployeeResponse;
 import ru.servicecompany.auth.entity.RoleName;
 import ru.servicecompany.auth.service.AuthService;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -19,7 +21,7 @@ public class AdminController {
     private final AuthService authService;
 
     /**
-     * Создание сотрудника (мастер/диспетчер/администратор).
+     * Создание сотрудника.
      */
     @PostMapping("/employees")
     public CreateEmployeeResponse createEmployee(
@@ -28,10 +30,23 @@ public class AdminController {
         return authService.createEmployee(request);
     }
 
+    /**
+     * Получение пользователей по роли.
+     */
     @GetMapping("/users")
     public List<AdminUserResponse> getUsers(
             @RequestParam RoleName role
     ) {
         return authService.getUsersByRole(role);
+    }
+
+    /**
+     * Получение полной карточки пользователя.
+     */
+    @GetMapping("/users/{id}")
+    public AdminUserCardResponse getUserCard(
+            @PathVariable UUID id
+    ) {
+        return authService.getUserCard(id);
     }
 }
