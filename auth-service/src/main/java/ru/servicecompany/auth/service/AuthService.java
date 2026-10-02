@@ -94,6 +94,19 @@ public class AuthService {
                         "Неверный Email или пароль"
                 ));
 
+        /*
+         * Пользователь заблокирован администратором.
+         *
+         * Проверяем это до проверки пароля,
+         * чтобы пользователь получил понятное сообщение.
+         */
+        if (!Boolean.TRUE.equals(user.getEnabled())) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "Ваша учетная запись была заблокирована администратором"
+            );
+        }
+
         if (!passwordEncoder.matches(
                 request.getPassword(),
                 user.getPassword()
@@ -342,6 +355,36 @@ public class AuthService {
                     requestId
             );
         }
+    }
+
+    /**
+     * Блокировка или разблокировка пользователя.
+     */
+    public AdminUserResponse setUserEnabled(
+            UUID userId,
+            boolean enabled
+    ) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Пользователь не найден"
+                ));
+
+        user.setEnabled(enabled);
+
+        userRepository.save(user);
+
+        return AdminUserResponse.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .middleName(user.getMiddleName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole().getName().name())
+                .enabled(user.getEnabled())
+                .build();
     }
 
     /**

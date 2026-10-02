@@ -6,9 +6,9 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import ru.servicecompany.auth.entity.User;
@@ -33,45 +33,72 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = null;
 
-        // Ищем JWT в Cookie
+        /*
+         * Ищем JWT в Cookie.
+         */
         if (request.getCookies() != null) {
+
             for (Cookie cookie : request.getCookies()) {
+
                 if ("access_token".equals(cookie.getName())) {
+
                     token = cookie.getValue();
                     break;
                 }
             }
         }
 
-        // Если cookie нет — пропускаем запрос
+        /*
+         * Cookie нет.
+         */
         if (token == null || token.isBlank()) {
+
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Проверяем токен
+        /*
+         * Проверяем JWT.
+         */
         if (!jwtService.isTokenValid(token)) {
+
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Получаем email из JWT
+        /*
+         * Получаем email из JWT.
+         */
         String email = jwtService.extractEmail(token);
 
-        // Загружаем пользователя вместе с ролью
+        /*
+         * Загружаем пользователя вместе с ролью.
+         */
         User user = userRepository.findByEmailWithRole(email)
                 .orElse(null);
 
-        if (user != null) {
+        /*
+         * ВАЖНО:
+         *
+         * Если аккаунт заблокирован,
+         * Authentication не создаём.
+         *
+         * Поэтому старый JWT больше
+         * не даёт пользователю доступ.
+         */
+        if (user != null
+                && Boolean.TRUE.equals(user.getEnabled())) {
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                             user,
                             null,
                             List.of(
-                                    // ОБЯЗАТЕЛЬНО ROLE_
                                     new SimpleGrantedAuthority(
-                                            "ROLE_" + user.getRole().getName().name()
+                                            "ROLE_" +
+                                                    user.getRole()
+                                                            .getName()
+                                                            .name()
                                     )
                             )
                     );

@@ -49,4 +49,22 @@ public class AdminController {
     ) {
         return authService.getUserCard(id);
     }
+
+    /**
+     * Блокировка / разблокировка пользователя.
+     * <p>
+     * enabled=true  -> разблокировать
+     * enabled=false -> заблокировать
+     */
+    @PatchMapping("/users/{id}/status")
+    public AdminUserResponse setUserStatus(
+            @PathVariable UUID id,
+            @RequestParam boolean enabled
+    ) {
+
+        return authService.setUserEnabled(
+                id,
+                enabled
+        );
+    }
 }
