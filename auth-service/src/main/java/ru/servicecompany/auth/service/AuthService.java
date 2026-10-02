@@ -13,13 +13,12 @@ import ru.servicecompany.auth.dto.response.UserResponse;
 import ru.servicecompany.auth.entity.Role;
 import ru.servicecompany.auth.entity.RoleName;
 import ru.servicecompany.auth.entity.User;
-import ru.servicecompany.auth.kafka.UserProfileProducer;
+import ru.servicecompany.auth.kafka.*;
+import ru.servicecompany.auth.kafka.event.ProfileDeleteResponseEvent;
 import ru.servicecompany.auth.repository.RoleRepository;
 import ru.servicecompany.auth.repository.UserRepository;
 import ru.servicecompany.auth.security.JwtService;
 import ru.servicecompany.auth.dto.response.AdminUserCardResponse;
-import ru.servicecompany.auth.kafka.AdminProfileRequestProducer;
-import ru.servicecompany.auth.kafka.ProfileRequestManager;
 import ru.servicecompany.auth.kafka.event.ProfileResponseEvent;
 
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +39,10 @@ public class AuthService {
     private final UserProfileProducer userProfileProducer;
     private final AdminProfileRequestProducer adminProfileRequestProducer;
     private final ProfileRequestManager profileRequestManager;
+
+
+    private final ProfileDeleteRequestProducer profileDeleteRequestProducer;
+    private final ProfileDeleteRequestManager profileDeleteRequestManager;
 
     /**
      * Регистрация клиента.
@@ -385,6 +388,91 @@ public class AuthService {
                 .role(user.getRole().getName().name())
                 .enabled(user.getEnabled())
                 .build();
+    }
+
+    public void deleteUser(UUID userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Пользователь не найден"
+                ));
+
+        String role =
+                user.getRole()
+                        .getName()
+                        .name();
+
+        UUID requestId = UUID.randomUUID();
+
+        CompletableFuture<ProfileDeleteResponseEvent> future =
+                profileDeleteRequestManager.register(
+                        requestId
+                );
+
+        try {
+
+            profileDeleteRequestProducer.deleteProfile(
+                    requestId,
+                    user.getId(),
+                    role
+            );
+
+            ProfileDeleteResponseEvent response =
+                    future.get(
+                            5,
+                            TimeUnit.SECONDS
+                    );
+
+            if (!response.isSuccess()) {
+
+                throw new ApiException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        response.getReason() != null
+                                ? response.getReason()
+                                : "Не удалось удалить профиль пользователя"
+                );
+            }
+
+            /*
+             * Профиль успешно удалён.
+             * Теперь удаляем аккаунт из auth-service.
+             */
+            userRepository.delete(user);
+
+        } catch (TimeoutException e) {
+
+            throw new ApiException(
+                    HttpStatus.GATEWAY_TIMEOUT,
+                    "Не удалось удалить профиль пользователя"
+            );
+
+        } catch (InterruptedException e) {
+
+            Thread.currentThread().interrupt();
+
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Удаление пользователя было прервано"
+            );
+
+        } catch (ApiException e) {
+
+            throw e;
+
+        } catch (Exception e) {
+
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Ошибка удаления пользователя"
+            );
+
+        } finally {
+
+            profileDeleteRequestManager.remove(
+                    requestId
+            );
+        }
     }
 
     /**

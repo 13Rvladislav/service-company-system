@@ -50,6 +50,13 @@ public class AdminController {
         return authService.getUserCard(id);
     }
 
+    @DeleteMapping("/users/{id}")
+    public void deleteUser(
+            @PathVariable UUID id
+    ) {
+        authService.deleteUser(id);
+    }
+
     /**
      * Блокировка / разблокировка пользователя.
      * <p>

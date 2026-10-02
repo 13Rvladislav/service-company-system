@@ -494,6 +494,69 @@ public class UserProfileService {
         };
     }
 
+    @Transactional
+    public void deleteProfile(
+            UUID authUserId,
+            String role
+    ) {
+
+        switch (role) {
+
+            case "CLIENT" -> {
+
+                UserProfile profile =
+                        userRepository.findByAuthUserId(authUserId)
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль клиента не найден"
+                                ));
+
+                userRepository.delete(profile);
+            }
+
+            case "ENGINEER" -> {
+
+                MasterProfile profile =
+                        masterRepository.findByAuthUserId(authUserId)
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль мастера не найден"
+                                ));
+
+                masterRepository.delete(profile);
+            }
+
+            case "DISPATCHER" -> {
+
+                DispatcherProfile profile =
+                        dispatcherRepository.findByAuthUserId(authUserId)
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль диспетчера не найден"
+                                ));
+
+                dispatcherRepository.delete(profile);
+            }
+
+            case "ADMIN" -> {
+
+                AdminProfile profile =
+                        adminRepository.findByAuthUserId(authUserId)
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль администратора не найден"
+                                ));
+
+                adminRepository.delete(profile);
+            }
+
+            default -> throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Неизвестная роль"
+            );
+        }
+    }
+
     /**
      * Entity -> Response
      */

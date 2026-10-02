@@ -9,6 +9,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import ru.servicecompany.user.kafka.event.ProfileDeleteRequestEvent;
 import ru.servicecompany.user.kafka.event.ProfileRequestEvent;
 import ru.servicecompany.user.kafka.event.UserProfileCreateEvent;
 
@@ -172,6 +173,76 @@ public class KafkaConsumerConfig {
 
         factory.setConsumerFactory(
                 profileRequestConsumerFactory()
+        );
+
+        return factory;
+    }
+    @Bean
+    public ConsumerFactory<String, ProfileDeleteRequestEvent>
+    profileDeleteConsumerFactory() {
+
+        Map<String, Object> props = new HashMap<>();
+
+        props.put(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                BOOTSTRAP_SERVERS
+        );
+
+        props.put(
+                ConsumerConfig.GROUP_ID_CONFIG,
+                "user-profile-delete-group"
+        );
+
+        props.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                "earliest"
+        );
+
+        props.put(
+                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+                true
+        );
+
+        props.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class
+        );
+
+        JacksonJsonDeserializer<ProfileDeleteRequestEvent>
+                deserializer =
+                new JacksonJsonDeserializer<>(
+                        ProfileDeleteRequestEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        deserializer.trustedPackages(
+                "ru.servicecompany.user.kafka.event",
+                "ru.servicecompany.auth.kafka.event"
+        );
+
+        return new DefaultKafkaConsumerFactory<>(
+                props,
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean(name = "profileDeleteKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            ProfileDeleteRequestEvent
+            >
+    profileDeleteKafkaListenerContainerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                ProfileDeleteRequestEvent
+                > factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                profileDeleteConsumerFactory()
         );
 
         return factory;
