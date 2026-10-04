@@ -15,6 +15,7 @@ import ru.servicecompany.auth.entity.RoleName;
 import ru.servicecompany.auth.entity.User;
 import ru.servicecompany.auth.kafka.*;
 import ru.servicecompany.auth.kafka.event.ProfileDeleteResponseEvent;
+import ru.servicecompany.auth.kafka.event.ProfileUpdateResponseEvent;
 import ru.servicecompany.auth.repository.RoleRepository;
 import ru.servicecompany.auth.repository.UserRepository;
 import ru.servicecompany.auth.security.JwtService;
@@ -39,7 +40,8 @@ public class AuthService {
     private final UserProfileProducer userProfileProducer;
     private final AdminProfileRequestProducer adminProfileRequestProducer;
     private final ProfileRequestManager profileRequestManager;
-
+    private final ProfileUpdateRequestProducer profileUpdateRequestProducer;
+    private final ProfileUpdateRequestManager profileUpdateRequestManager;
 
     private final ProfileDeleteRequestProducer profileDeleteRequestProducer;
     private final ProfileDeleteRequestManager profileDeleteRequestManager;
@@ -388,6 +390,168 @@ public class AuthService {
                 .role(user.getRole().getName().name())
                 .enabled(user.getEnabled())
                 .build();
+    }
+
+    public AdminUserCardResponse updateUser(
+            UUID userId,
+            UpdateAdminUserRequest request
+    ) {
+
+        User user =
+                userRepository.findById(userId)
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Пользователь не найден"
+                        ));
+
+        /*
+         * Проверяем Email.
+         */
+        if (!user.getEmail().equalsIgnoreCase(request.getEmail())
+                && userRepository.existsByEmail(request.getEmail())) {
+
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Пользователь с таким Email уже существует"
+            );
+        }
+
+        /*
+         * Проверяем телефон.
+         */
+        if (!user.getPhone().equals(request.getPhone())
+                && userRepository.existsByPhone(request.getPhone())) {
+
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Пользователь с таким телефоном уже существует"
+            );
+        }
+
+        String role =
+                user.getRole()
+                        .getName()
+                        .name();
+
+        UUID requestId =
+                UUID.randomUUID();
+
+        CompletableFuture<ProfileUpdateResponseEvent> future =
+                profileUpdateRequestManager.register(
+                        requestId
+                );
+
+        try {
+
+            /*
+             * Сначала обновляем профиль в user-service.
+             */
+            profileUpdateRequestProducer.updateProfile(
+                    requestId,
+                    user.getId(),
+                    role,
+                    request.getFirstName(),
+                    request.getLastName(),
+                    request.getMiddleName(),
+                    request.getPhone(),
+
+                    // CLIENT
+                    request.getHouseId(),
+                    request.getApartment(),
+
+                    // ENGINEER
+                    request.getEmployeeNumber(),
+                    request.getSpecialization(),
+                    request.getZoneId(),
+                    request.getStatus(),
+
+                    // DISPATCHER
+                    request.getDepartment(),
+
+                    // ADMIN
+                    request.getPosition()
+            );
+
+            ProfileUpdateResponseEvent response =
+                    future.get(
+                            5,
+                            TimeUnit.SECONDS
+                    );
+
+            if (!response.isSuccess()) {
+
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        response.getReason() != null
+                                ? response.getReason()
+                                : "Не удалось обновить профиль пользователя"
+                );
+            }
+
+            /*
+             * Профиль успешно обновлён.
+             * Теперь обновляем User в auth-service.
+             */
+            user.setFirstName(
+                    request.getFirstName()
+            );
+
+            user.setLastName(
+                    request.getLastName()
+            );
+
+            user.setMiddleName(
+                    request.getMiddleName()
+            );
+
+            user.setPhone(
+                    request.getPhone()
+            );
+
+            user.setEmail(
+                    request.getEmail()
+            );
+
+            userRepository.save(user);
+
+            /*
+             * Возвращаем актуальную карточку.
+             */
+            return getUserCard(userId);
+
+        } catch (TimeoutException e) {
+
+            throw new ApiException(
+                    HttpStatus.GATEWAY_TIMEOUT,
+                    "Не удалось обновить профиль пользователя"
+            );
+
+        } catch (InterruptedException e) {
+
+            Thread.currentThread().interrupt();
+
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Обновление пользователя было прервано"
+            );
+
+        } catch (ApiException e) {
+
+            throw e;
+
+        } catch (Exception e) {
+
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Ошибка обновления пользователя"
+            );
+
+        } finally {
+
+            profileUpdateRequestManager.remove(
+                    requestId
+            );
+        }
     }
 
     public void deleteUser(UUID userId) {

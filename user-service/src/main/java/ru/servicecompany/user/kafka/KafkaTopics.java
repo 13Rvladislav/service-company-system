@@ -37,4 +37,16 @@ public final class KafkaTopics {
      */
     public static final String USER_PROFILE_DELETE_RESPONSE =
             "user.profile.delete.response";
+
+    /**
+     * Обновление профиля.
+     */
+    public static final String USER_PROFILE_UPDATE =
+            "user.profile.update";
+
+    /**
+     * Ответ обновления профиля.
+     */
+    public static final String USER_PROFILE_UPDATE_RESPONSE =
+            "user.profile.update.response";
 }

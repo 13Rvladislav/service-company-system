@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import ru.servicecompany.auth.dto.request.CreateEmployeeRequest;
+import ru.servicecompany.auth.dto.request.UpdateAdminUserRequest;
 import ru.servicecompany.auth.dto.response.AdminUserCardResponse;
 import ru.servicecompany.auth.dto.response.AdminUserResponse;
 import ru.servicecompany.auth.dto.response.CreateEmployeeResponse;
@@ -49,7 +50,20 @@ public class AdminController {
     ) {
         return authService.getUserCard(id);
     }
+    /**
+     * Редактирование пользователя.
+     */
+    @PutMapping("/users/{id}")
+    public AdminUserCardResponse updateUser(
+            @PathVariable UUID id,
+            @RequestBody @Valid UpdateAdminUserRequest request
+    ) {
 
+        return authService.updateUser(
+                id,
+                request
+        );
+    }
     @DeleteMapping("/users/{id}")
     public void deleteUser(
             @PathVariable UUID id

@@ -12,6 +12,7 @@ import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import ru.servicecompany.auth.kafka.event.ProfileDeleteResponseEvent;
 import ru.servicecompany.auth.kafka.event.ProfileFailedEvent;
 import ru.servicecompany.auth.kafka.event.ProfileResponseEvent;
+import ru.servicecompany.auth.kafka.event.ProfileUpdateResponseEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -249,6 +250,78 @@ public class KafkaConsumerConfig {
 
         factory.setConsumerFactory(
                 profileDeleteResponseConsumerFactory()
+        );
+
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, ProfileUpdateResponseEvent>
+    profileUpdateResponseConsumerFactory() {
+
+        Map<String, Object> properties =
+                new HashMap<>();
+
+        properties.put(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                BOOTSTRAP_SERVERS
+        );
+
+        properties.put(
+                ConsumerConfig.GROUP_ID_CONFIG,
+                "auth-profile-update-response-group"
+        );
+
+        properties.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                "earliest"
+        );
+
+        properties.put(
+                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+                true
+        );
+
+        properties.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                StringDeserializer.class
+        );
+
+        JacksonJsonDeserializer<ProfileUpdateResponseEvent>
+                deserializer =
+                new JacksonJsonDeserializer<>(
+                        ProfileUpdateResponseEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        deserializer.trustedPackages(
+                "ru.servicecompany.user.kafka.event",
+                "ru.servicecompany.auth.kafka.event"
+        );
+
+        return new DefaultKafkaConsumerFactory<>(
+                properties,
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean(name = "profileUpdateResponseKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            ProfileUpdateResponseEvent
+            >
+    profileUpdateResponseKafkaListenerContainerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                ProfileUpdateResponseEvent
+                > factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                profileUpdateResponseConsumerFactory()
         );
 
         return factory;

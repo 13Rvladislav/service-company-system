@@ -11,6 +11,7 @@ import ru.servicecompany.user.dto.request.CreateUserProfileRequest;
 import ru.servicecompany.user.dto.request.UpdateUserProfileRequest;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
 import ru.servicecompany.user.entity.*;
+import ru.servicecompany.user.kafka.event.ProfileUpdateRequestEvent;
 import ru.servicecompany.user.repository.*;
 
 import java.io.IOException;
@@ -25,7 +26,7 @@ public class UserProfileService {
     private final DispatcherProfileRepository dispatcherRepository;
     private final AdminProfileRepository adminRepository;
     private final HouseRepository houseRepository;
-
+    private final ZoneRepository zoneRepository;
     /**
      * Создание профиля клиента.
      */
@@ -492,6 +493,286 @@ public class UserProfileService {
                     "Неизвестная роль"
             );
         };
+    }
+    @Transactional
+    public void updateProfileByAuthUserId(
+            ProfileUpdateRequestEvent event
+    ) {
+
+        switch (event.getRole()) {
+
+            case "CLIENT" -> {
+
+                UserProfile profile =
+                        userRepository.findByAuthUserId(
+                                        event.getAuthUserId()
+                                )
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль клиента не найден"
+                                ));
+
+                if (event.getHouseId() == null) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Необходимо выбрать адрес проживания"
+                    );
+                }
+
+                House house =
+                        houseRepository.findById(
+                                        event.getHouseId()
+                                )
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Дом не найден"
+                                ));
+
+                profile.setFirstName(
+                        event.getFirstName()
+                );
+
+                profile.setLastName(
+                        event.getLastName()
+                );
+
+                profile.setMiddleName(
+                        event.getMiddleName()
+                );
+
+                profile.setPhone(
+                        event.getPhone()
+                );
+
+                profile.setHouse(
+                        house
+                );
+
+                profile.setApartment(
+                        event.getApartment()
+                );
+
+                userRepository.save(profile);
+            }
+
+            case "ENGINEER" -> {
+
+                MasterProfile profile =
+                        masterRepository.findByAuthUserId(
+                                        event.getAuthUserId()
+                                )
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль мастера не найден"
+                                ));
+
+                if (event.getEmployeeNumber() == null
+                        || event.getEmployeeNumber().isBlank()) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Табельный номер обязателен"
+                    );
+                }
+
+                if (event.getSpecialization() == null
+                        || event.getSpecialization().isBlank()) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Специализация обязательна"
+                    );
+                }
+
+                if (event.getStatus() == null
+                        || event.getStatus().isBlank()) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Статус мастера обязателен"
+                    );
+                }
+
+                MasterStatus status;
+
+                try {
+
+                    status = MasterStatus.valueOf(
+                            event.getStatus().toUpperCase()
+                    );
+
+                } catch (IllegalArgumentException e) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Некорректный статус мастера"
+                    );
+                }
+
+                if (event.getZoneId() != null) {
+
+                    zoneRepository.findById(
+                                    event.getZoneId()
+                            )
+                            .orElseThrow(() -> new ApiException(
+                                    HttpStatus.NOT_FOUND,
+                                    "Зона не найдена"
+                            ));
+                }
+
+                profile.setFirstName(
+                        event.getFirstName()
+                );
+
+                profile.setLastName(
+                        event.getLastName()
+                );
+
+                profile.setMiddleName(
+                        event.getMiddleName()
+                );
+
+                profile.setPhone(
+                        event.getPhone()
+                );
+
+                profile.setEmployeeNumber(
+                        event.getEmployeeNumber()
+                );
+
+                profile.setSpecialization(
+                        event.getSpecialization()
+                );
+
+                profile.setZoneId(
+                        event.getZoneId()
+                );
+
+                profile.setStatus(
+                        status
+                );
+
+                masterRepository.save(profile);
+            }
+
+            case "DISPATCHER" -> {
+
+                DispatcherProfile profile =
+                        dispatcherRepository.findByAuthUserId(
+                                        event.getAuthUserId()
+                                )
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль диспетчера не найден"
+                                ));
+
+                if (event.getEmployeeNumber() == null
+                        || event.getEmployeeNumber().isBlank()) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Табельный номер обязателен"
+                    );
+                }
+
+                if (event.getDepartment() == null
+                        || event.getDepartment().isBlank()) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Отдел обязателен"
+                    );
+                }
+
+                profile.setFirstName(
+                        event.getFirstName()
+                );
+
+                profile.setLastName(
+                        event.getLastName()
+                );
+
+                profile.setMiddleName(
+                        event.getMiddleName()
+                );
+
+                profile.setPhone(
+                        event.getPhone()
+                );
+
+                profile.setEmployeeNumber(
+                        event.getEmployeeNumber()
+                );
+
+                profile.setDepartment(
+                        event.getDepartment()
+                );
+
+                dispatcherRepository.save(profile);
+            }
+
+            case "ADMIN" -> {
+
+                AdminProfile profile =
+                        adminRepository.findByAuthUserId(
+                                        event.getAuthUserId()
+                                )
+                                .orElseThrow(() -> new ApiException(
+                                        HttpStatus.NOT_FOUND,
+                                        "Профиль администратора не найден"
+                                ));
+
+                if (event.getEmployeeNumber() == null
+                        || event.getEmployeeNumber().isBlank()) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Табельный номер обязателен"
+                    );
+                }
+
+                if (event.getPosition() == null
+                        || event.getPosition().isBlank()) {
+
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Должность обязательна"
+                    );
+                }
+
+                profile.setFirstName(
+                        event.getFirstName()
+                );
+
+                profile.setLastName(
+                        event.getLastName()
+                );
+
+                profile.setMiddleName(
+                        event.getMiddleName()
+                );
+
+                profile.setPhone(
+                        event.getPhone()
+                );
+
+                profile.setEmployeeNumber(
+                        event.getEmployeeNumber()
+                );
+
+                profile.setPosition(
+                        event.getPosition()
+                );
+
+                adminRepository.save(profile);
+            }
+
+            default -> throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Неизвестная роль"
+            );
+        }
     }
 
     @Transactional
