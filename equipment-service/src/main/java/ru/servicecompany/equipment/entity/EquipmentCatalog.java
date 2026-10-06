@@ -20,21 +20,35 @@ public class EquipmentCatalog {
 
     /**
      * Тип оборудования.
-     * Например: Газовый котёл, Газовая колонка.
+     *
+     * Например:
+     * Газовый котёл
+     * Газовая колонка
      */
-    @Column(nullable = false, length = 100)
-    private String type;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "equipment_type_id",
+            nullable = false
+    )
+    private EquipmentType equipmentType;
 
     /**
      * Производитель.
-     * Например: Baxi, Ariston, Bosch.
+     *
+     * Например:
+     * Baxi
+     * Ariston
+     * Bosch
      */
     @Column(nullable = false, length = 100)
     private String manufacturer;
 
     /**
      * Модель оборудования.
-     * Например: Eco Four, Clas.
+     *
+     * Например:
+     * Eco Four
+     * Clas X
      */
     @Column(nullable = false, length = 100)
     private String model;

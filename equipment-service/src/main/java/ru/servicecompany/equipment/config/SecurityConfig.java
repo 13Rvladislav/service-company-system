@@ -18,13 +18,16 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http
     ) throws Exception {
-        System.out.println("========== EQUIPMENT SECURITY CONFIG LOADED ==========");
+
         http
+                // JWT используется вместо CSRF-защиты
                 .csrf(csrf -> csrf.disable())
 
-                .cors(cors -> {
-                })
+                // Разрешаем CORS
+                .cors(cors -> {})
 
+                // Сервис работает stateless.
+                // Сервер не хранит HTTP-сессии пользователей.
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
@@ -33,7 +36,10 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // Swagger
+                        // ==========================
+                        // Swagger / OpenAPI
+                        // ==========================
+
                         .requestMatchers(
                                 "/swagger",
                                 "/swagger/**",
@@ -42,20 +48,41 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
 
-                        // Администратор
+                        // ==========================
+                        // Справочник типов оборудования
+                        // ==========================
+
+                        .requestMatchers(
+                                "/api/equipment/types/**"
+                        ).hasRole("ADMIN")
+
+                        // ==========================
+                        // Справочник оборудования
+                        // ==========================
+
                         .requestMatchers(
                                 "/api/equipment/catalog/**"
                         ).hasRole("ADMIN")
 
-                        // Клиент
+                        // ==========================
+                        // Оборудование текущего клиента
+                        // Пока контроллеров нет,
+                        // но правило закладываем заранее.
+                        // ==========================
+
                         .requestMatchers(
                                 "/api/equipment/my/**"
                         ).hasRole("CLIENT")
 
-                        // Всё остальное требует JWT
+                        // ==========================
+                        // Все остальные запросы
+                        // ==========================
+
                         .anyRequest().authenticated()
                 )
 
+                // Наш JWT-фильтр должен выполняться
+                // до стандартного UsernamePasswordAuthenticationFilter.
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
