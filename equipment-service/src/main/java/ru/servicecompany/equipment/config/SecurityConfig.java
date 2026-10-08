@@ -3,86 +3,112 @@ package ru.servicecompany.equipment.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http
-    ) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                // JWT используется вместо CSRF-защиты
+                // JWT используется вместо сессий
                 .csrf(csrf -> csrf.disable())
 
-                // Разрешаем CORS
                 .cors(cors -> {})
 
-                // Сервис работает stateless.
-                // Сервер не хранит HTTP-сессии пользователей.
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
                 .authorizeHttpRequests(auth -> auth
 
-                        // ==========================
-                        // Swagger / OpenAPI
-                        // ==========================
-
+                        // =========================
+                        // Swagger
+                        // =========================
                         .requestMatchers(
-                                "/swagger",
-                                "/swagger/**",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/webjars/**"
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
                         ).permitAll()
 
-                        // ==========================
-                        // Справочник типов оборудования
-                        // ==========================
+                        // =========================
+                        // CORS preflight
+                        // =========================
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        .requestMatchers(
-                                "/api/equipment/types/**"
-                        ).hasRole("ADMIN")
+                        // =========================
+                        // Equipment types
+                        // =========================
 
-                        // ==========================
-                        // Справочник оборудования
-                        // ==========================
+                        // Смотреть типы могут все авторизованные пользователи
+                        .requestMatchers(HttpMethod.GET, "/api/equipment/types/**")
+                        .hasAnyRole(
+                                "CLIENT",
+                                "ENGINEER",
+                                "DISPATCHER",
+                                "ADMIN"
+                        )
 
-                        .requestMatchers(
-                                "/api/equipment/catalog/**"
-                        ).hasRole("ADMIN")
+                        // Создавать типы может только ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/equipment/types/**")
+                        .hasRole("ADMIN")
 
-                        // ==========================
-                        // Оборудование текущего клиента
-                        // Пока контроллеров нет,
-                        // но правило закладываем заранее.
-                        // ==========================
+                        // Изменять типы может только ADMIN
+                        .requestMatchers(HttpMethod.PUT, "/api/equipment/types/**")
+                        .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                "/api/equipment/my/**"
-                        ).hasRole("CLIENT")
+                        // Удалять типы может только ADMIN
+                        .requestMatchers(HttpMethod.DELETE, "/api/equipment/types/**")
+                        .hasRole("ADMIN")
 
-                        // ==========================
-                        // Все остальные запросы
-                        // ==========================
+                        // =========================
+                        // Equipment catalog
+                        // =========================
 
+                        // Каталог нужен клиенту для выбора оборудования
+                        .requestMatchers(HttpMethod.GET, "/api/equipment/catalog/**")
+                        .hasAnyRole(
+                                "CLIENT",
+                                "ENGINEER",
+                                "DISPATCHER",
+                                "ADMIN"
+                        )
+
+                        // Каталогом управляет только ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/equipment/catalog/**")
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.PUT, "/api/equipment/catalog/**")
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.DELETE, "/api/equipment/catalog/**")
+                        .hasRole("ADMIN")
+
+                        // =========================
+                        // My equipment
+                        // =========================
+
+                        // Клиент работает только со своим оборудованием
+                        .requestMatchers("/api/equipment/my/**")
+                        .hasRole("CLIENT")
+
+                        // =========================
+                        // Остальные endpoints
+                        // =========================
                         .anyRequest().authenticated()
                 )
 
-                // Наш JWT-фильтр должен выполняться
-                // до стандартного UsernamePasswordAuthenticationFilter.
+                // JWT достаёт пользователя из HttpOnly cookie
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
