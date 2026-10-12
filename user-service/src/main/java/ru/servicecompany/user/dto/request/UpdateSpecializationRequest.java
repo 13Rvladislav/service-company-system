@@ -2,11 +2,12 @@
 package ru.servicecompany.user.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -17,6 +18,6 @@ public class UpdateSpecializationRequest {
     @Size(max = 100, message = "Название не должно превышать 100 символов")
     private String name;
 
-    @NotNull(message = "Необходимо выбрать тип оборудования")
-    private UUID equipmentTypeId;
+    @NotEmpty(message = "Выберите хотя бы один тип оборудования")
+    private List<UUID> equipmentTypeIds;
 }

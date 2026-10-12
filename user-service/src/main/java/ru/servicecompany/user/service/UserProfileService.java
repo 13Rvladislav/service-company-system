@@ -32,6 +32,7 @@ public class UserProfileService {
     private final HouseRepository houseRepository;
     private final ZoneRepository zoneRepository;
     private final MasterSpecializationRepository specializationRepository;
+
     /**
      * Создание профиля клиента.
      */
@@ -499,6 +500,7 @@ public class UserProfileService {
             );
         };
     }
+
     @Transactional
     public void updateProfileByAuthUserId(
             ProfileUpdateRequestEvent event
@@ -910,7 +912,10 @@ public class UserProfileService {
                 .build();
     }
 
-    /** Преобразует специализации мастера в DTO для ответа API. */
+
+    /**
+     * Преобразует специализации мастера в DTO для ответа API.
+     */
     private List<SpecializationResponse> mapSpecializations(
             Set<MasterSpecialization> specializations
     ) {
@@ -922,8 +927,11 @@ public class UserProfileService {
                 .map(specialization -> SpecializationResponse.builder()
                         .id(specialization.getId())
                         .name(specialization.getName())
-                        .equipmentTypeId(specialization.getEquipmentTypeId())
+                        .equipmentTypeIds(
+                                new HashSet<>(specialization.getEquipmentTypeIds())
+                        )
                         .build())
                 .toList();
     }
+
 }

@@ -4,6 +4,7 @@ package ru.servicecompany.user.dto.response;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -12,5 +13,5 @@ public class SpecializationResponse {
 
     private UUID id;
     private String name;
-    private UUID equipmentTypeId;
+    private Set<UUID> equipmentTypeIds;
 }

@@ -31,19 +31,20 @@ public class MasterSpecializationService {
     public SpecializationResponse create(CreateSpecializationRequest request) {
         String name = normalizeName(request.getName());
 
-        if (repository.existsByNameIgnoreCaseAndEquipmentTypeId(
-                name,
-                request.getEquipmentTypeId()
-        )) {
+        if (repository.existsByNameIgnoreCase(name)) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
-                    "Такая специализация для этого типа оборудования уже существует"
+                    "Специализация с таким названием уже существует"
             );
         }
 
+        Set<UUID> equipmentTypeIds = validateEquipmentTypeIds(
+                request.getEquipmentTypeIds()
+        );
+
         MasterSpecialization specialization = new MasterSpecialization();
         specialization.setName(name);
-        specialization.setEquipmentTypeId(request.getEquipmentTypeId());
+        specialization.setEquipmentTypeIds(equipmentTypeIds);
 
         return map(repository.save(specialization));
     }
@@ -58,16 +59,19 @@ public class MasterSpecializationService {
 
     @Transactional(readOnly = true)
     public List<SpecializationResponse> getByEquipmentType(UUID equipmentTypeId) {
-        return repository.findAllByEquipmentTypeId(equipmentTypeId)
+        return repository.findAll()
                 .stream()
+                .filter(specialization ->
+                        specialization.getEquipmentTypeIds()
+                                .contains(equipmentTypeId)
+                )
                 .map(this::map)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public SpecializationResponse getById(UUID id) {
-        MasterSpecialization specialization = findById(id);
-        return map(specialization);
+        return map(findById(id));
     }
 
     @Transactional
@@ -78,19 +82,19 @@ public class MasterSpecializationService {
         MasterSpecialization specialization = findById(id);
         String name = normalizeName(request.getName());
 
-        if (repository.existsByNameIgnoreCaseAndEquipmentTypeIdAndIdNot(
-                name,
-                request.getEquipmentTypeId(),
-                id
-        )) {
+        if (repository.existsByNameIgnoreCaseAndIdNot(name, id)) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
-                    "Такая специализация для этого типа оборудования уже существует"
+                    "Специализация с таким названием уже существует"
             );
         }
 
+        Set<UUID> equipmentTypeIds = validateEquipmentTypeIds(
+                request.getEquipmentTypeIds()
+        );
+
         specialization.setName(name);
-        specialization.setEquipmentTypeId(request.getEquipmentTypeId());
+        specialization.setEquipmentTypeIds(equipmentTypeIds);
 
         return map(repository.save(specialization));
     }
@@ -99,18 +103,6 @@ public class MasterSpecializationService {
     public void delete(UUID id) {
         MasterSpecialization specialization = findById(id);
         repository.delete(specialization);
-    }
-
-    private MasterSpecialization findById(UUID id) {
-        return repository.findById(id)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "Специализация не найдена"
-                ));
-    }
-
-    private String normalizeName(String name) {
-        return name.trim();
     }
 
     @Transactional(readOnly = true)
@@ -140,7 +132,7 @@ public class MasterSpecializationService {
 
         List<UUID> ids = request.getSpecializationIds();
 
-        if (ids.stream().anyMatch(id -> id == null)) {
+        if (ids == null || ids.stream().anyMatch(id -> id == null)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "ID специализации не может быть пустым"
@@ -169,11 +161,43 @@ public class MasterSpecializationService {
                 .toList();
     }
 
+    private MasterSpecialization findById(UUID id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Специализация не найдена"
+                ));
+    }
+
+    private Set<UUID> validateEquipmentTypeIds(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Выберите хотя бы один тип оборудования"
+            );
+        }
+
+        if (ids.stream().anyMatch(id -> id == null)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "ID типа оборудования не может быть пустым"
+            );
+        }
+
+        return new HashSet<>(ids);
+    }
+
+    private String normalizeName(String name) {
+        return name.trim();
+    }
+
     private SpecializationResponse map(MasterSpecialization specialization) {
         return SpecializationResponse.builder()
                 .id(specialization.getId())
                 .name(specialization.getName())
-                .equipmentTypeId(specialization.getEquipmentTypeId())
+                .equipmentTypeIds(
+                        new HashSet<>(specialization.getEquipmentTypeIds())
+                )
                 .build();
     }
 }
