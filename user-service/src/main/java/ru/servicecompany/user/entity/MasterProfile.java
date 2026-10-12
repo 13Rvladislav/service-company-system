@@ -1,3 +1,4 @@
+
 package ru.servicecompany.user.entity;
 
 import jakarta.persistence.*;
@@ -6,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -20,7 +23,7 @@ public class MasterProfile {
     private UUID id;
 
     /**
-     * UUID пользователя из auth-service
+     * UUID пользователя из auth-service.
      */
     @Column(nullable = false, unique = true)
     private UUID authUserId;
@@ -37,33 +40,37 @@ public class MasterProfile {
     private String phone;
 
     /**
-     * Табельный номер сотрудника
+     * Табельный номер сотрудника.
      */
     @Column(nullable = false, unique = true)
     private String employeeNumber;
 
     /**
-     * Специализация мастера
-     * (котлы, колонки и т.д.)
+     * Специализации, назначенные мастеру.
      */
-    @Column(nullable = false)
-    private String specialization;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "master_profile_specializations",
+            joinColumns = @JoinColumn(name = "master_profile_id"),
+            inverseJoinColumns = @JoinColumn(name = "specialization_id"),
+            uniqueConstraints = @UniqueConstraint(
+                    name = "uk_master_profile_specialization",
+                    columnNames = {"master_profile_id", "specialization_id"}
+            )
+    )
+    private Set<MasterSpecialization> specializations = new HashSet<>();
 
     /**
-     * Закрепленная зона обслуживания
+     * Закрепленная зона обслуживания.
      */
     private UUID zoneId;
 
     /**
-     * Текущий статус мастера
+     * Текущий статус мастера.
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MasterStatus status = MasterStatus.AVAILABLE;
-
-    // =====================
-    // Фото профиля
-    // =====================
 
     @Lob
     @Column(name = "avatar")

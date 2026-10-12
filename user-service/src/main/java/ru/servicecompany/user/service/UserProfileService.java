@@ -10,11 +10,15 @@ import ru.servicecompany.user.config.JwtUserPrincipal;
 import ru.servicecompany.user.dto.request.CreateUserProfileRequest;
 import ru.servicecompany.user.dto.request.UpdateUserProfileRequest;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
+import ru.servicecompany.user.dto.response.SpecializationResponse;
 import ru.servicecompany.user.entity.*;
 import ru.servicecompany.user.kafka.event.ProfileUpdateRequestEvent;
 import ru.servicecompany.user.repository.*;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -27,6 +31,7 @@ public class UserProfileService {
     private final AdminProfileRepository adminRepository;
     private final HouseRepository houseRepository;
     private final ZoneRepository zoneRepository;
+    private final MasterSpecializationRepository specializationRepository;
     /**
      * Создание профиля клиента.
      */
@@ -83,7 +88,7 @@ public class UserProfileService {
                         .email(principal.email())
                         .phone(p.getPhone())
                         .employeeNumber(p.getEmployeeNumber())
-                        .specialization(p.getSpecialization())
+                        .specializations(mapSpecializations(p.getSpecializations()))
                         .status(p.getStatus().name())
                         .role(principal.role())
                         .hasAvatar(p.getAvatar() != null && p.getAvatar().length > 0)
@@ -211,7 +216,7 @@ public class UserProfileService {
                         .email(principal.email())
                         .phone(profile.getPhone())
                         .employeeNumber(profile.getEmployeeNumber())
-                        .specialization(profile.getSpecialization())
+                        .specializations(mapSpecializations(profile.getSpecializations()))
                         .status(profile.getStatus().name())
                         .role(principal.role())
                         .hasAvatar(profile.getAvatar() != null && profile.getAvatar().length > 0)
@@ -426,7 +431,7 @@ public class UserProfileService {
                         .middleName(profile.getMiddleName())
                         .phone(profile.getPhone())
                         .employeeNumber(profile.getEmployeeNumber())
-                        .specialization(profile.getSpecialization())
+                        .specializations(mapSpecializations(profile.getSpecializations()))
                         .status(profile.getStatus().name())
                         .role(role)
                         .hasAvatar(
@@ -576,12 +581,30 @@ public class UserProfileService {
                     );
                 }
 
-                if (event.getSpecialization() == null
-                        || event.getSpecialization().isBlank()) {
+                List<UUID> specializationIds = event.getSpecializationIds();
 
+                if (specializationIds == null || specializationIds.isEmpty()) {
                     throw new ApiException(
                             HttpStatus.BAD_REQUEST,
-                            "Специализация обязательна"
+                            "Необходимо указать хотя бы одну специализацию"
+                    );
+                }
+
+                if (specializationIds.stream().anyMatch(id -> id == null)) {
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "ID специализации не может быть пустым"
+                    );
+                }
+
+                Set<UUID> uniqueSpecializationIds = new HashSet<>(specializationIds);
+                List<MasterSpecialization> specializations =
+                        specializationRepository.findAllById(uniqueSpecializationIds);
+
+                if (specializations.size() != uniqueSpecializationIds.size()) {
+                    throw new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Одна или несколько специализаций не найдены"
                     );
                 }
 
@@ -641,9 +664,7 @@ public class UserProfileService {
                         event.getEmployeeNumber()
                 );
 
-                profile.setSpecialization(
-                        event.getSpecialization()
-                );
+                profile.setSpecializations(new HashSet<>(specializations));
 
                 profile.setZoneId(
                         event.getZoneId()
@@ -887,5 +908,22 @@ public class UserProfileService {
                 .role(role)
                 .hasAvatar(hasAvatar)
                 .build();
+    }
+
+    /** Преобразует специализации мастера в DTO для ответа API. */
+    private List<SpecializationResponse> mapSpecializations(
+            Set<MasterSpecialization> specializations
+    ) {
+        if (specializations == null || specializations.isEmpty()) {
+            return List.of();
+        }
+
+        return specializations.stream()
+                .map(specialization -> SpecializationResponse.builder()
+                        .id(specialization.getId())
+                        .name(specialization.getName())
+                        .equipmentTypeId(specialization.getEquipmentTypeId())
+                        .build())
+                .toList();
     }
 }

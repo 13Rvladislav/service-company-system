@@ -1,7 +1,9 @@
 package ru.servicecompany.user.kafka.event;
 
 import lombok.*;
+import ru.servicecompany.user.dto.response.SpecializationResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -51,7 +53,7 @@ public class ProfileResponseEvent {
     // ENGINEER
 
     private String employeeNumber;
-    private String specialization;
+    private List<SpecializationResponse> specializations;
     private String status;
 
     // DISPATCHER

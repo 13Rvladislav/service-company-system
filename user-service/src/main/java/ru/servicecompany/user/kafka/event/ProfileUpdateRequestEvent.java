@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -12,45 +13,28 @@ import java.util.UUID;
 public class ProfileUpdateRequestEvent {
 
     private UUID requestId;
-
     private UUID authUserId;
-
     private String role;
 
     private String firstName;
-
     private String lastName;
-
     private String middleName;
-
     private String phone;
 
-    /*
-     * CLIENT
-     */
+    // CLIENT
     private UUID houseId;
-
     private String apartment;
 
-    /*
-     * ENGINEER
-     */
+    // ENGINEER
     private String employeeNumber;
-
-    private String specialization;
-
+    private List<UUID> specializationIds;
     private UUID zoneId;
-
     private String status;
 
-    /*
-     * DISPATCHER
-     */
+    // DISPATCHER
     private String department;
 
-    /*
-     * ADMIN
-     */
+    // ADMIN
     private String position;
 
     public ProfileUpdateRequestEvent(
@@ -64,7 +48,7 @@ public class ProfileUpdateRequestEvent {
             UUID houseId,
             String apartment,
             String employeeNumber,
-            String specialization,
+            List<UUID> specializationIds,
             UUID zoneId,
             String status,
             String department,
@@ -80,7 +64,7 @@ public class ProfileUpdateRequestEvent {
         this.houseId = houseId;
         this.apartment = apartment;
         this.employeeNumber = employeeNumber;
-        this.specialization = specialization;
+        this.specializationIds = specializationIds;
         this.zoneId = zoneId;
         this.status = status;
         this.department = department;

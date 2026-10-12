@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -14,7 +15,6 @@ import java.util.UUID;
 public class UserProfileCreateEvent {
 
     private UUID authUserId;
-
     private String role;
 
     private String firstName;
@@ -22,9 +22,10 @@ public class UserProfileCreateEvent {
     private String middleName;
     private String phone;
 
-    // Только для сотрудников
+    // Сотрудники
     private String employeeNumber;
     private String specialization;
+    private List<UUID> specializationIds;
     private UUID zoneId;
     private String department;
     private String position;

@@ -3,6 +3,7 @@ package ru.servicecompany.user.dto.response;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -29,8 +30,9 @@ public class UserProfileResponse {
 
     // ENGINEER
     private String employeeNumber;
-    private String specialization;
+    private List<SpecializationResponse> specializations;
     private String status;
+    private UUID zoneId;
 
     // DISPATCHER
     private String department;

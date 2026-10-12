@@ -1,18 +1,20 @@
 package ru.servicecompany.auth.kafka.event;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class UserProfileCreateEvent {
 
     private UUID authUserId;
-
     private String role;
 
     private String firstName;
@@ -20,14 +22,11 @@ public class UserProfileCreateEvent {
     private String middleName;
     private String phone;
 
-    // ENGINEER
+    // Сотрудники
     private String employeeNumber;
     private String specialization;
+    private List<UUID> specializationIds;
     private UUID zoneId;
-
-    // DISPATCHER
     private String department;
-
-    // ADMIN
     private String position;
 }

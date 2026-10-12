@@ -2,6 +2,7 @@ package ru.servicecompany.auth.kafka;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import ru.servicecompany.auth.common.exception.ApiException;
@@ -20,13 +21,9 @@ public class UserProfileProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    /**
-     * Создание профиля клиента.
-     */
     public void sendClientProfileCreate(User user) {
 
-        UserProfileCreateEvent event =
-                new UserProfileCreateEvent();
+        UserProfileCreateEvent event = new UserProfileCreateEvent();
 
         event.setAuthUserId(user.getId());
         event.setFirstName(user.getFirstName());
@@ -42,64 +39,43 @@ public class UserProfileProducer {
         );
 
         log.info(
-                "Kafka -> отправлено событие создания CLIENT profile: authUserId={}",
+                "Kafka -> создание профиля CLIENT: authUserId={}",
                 user.getId()
         );
     }
 
-    /**
-     * Создание профиля сотрудника.
-     */
     public void sendEmployeeProfileCreate(
             User user,
             CreateEmployeeRequest request
     ) {
 
-        UserProfileCreateEvent event =
-                new UserProfileCreateEvent();
+        UserProfileCreateEvent event = new UserProfileCreateEvent();
 
         event.setAuthUserId(user.getId());
-
         event.setFirstName(user.getFirstName());
         event.setLastName(user.getLastName());
         event.setMiddleName(user.getMiddleName());
         event.setPhone(user.getPhone());
 
-        event.setEmployeeNumber(
-                request.getEmployeeNumber()
-        );
+        event.setEmployeeNumber(request.getEmployeeNumber());
+        event.setDepartment(request.getDepartment());
+        event.setPosition(request.getPosition());
+        event.setRole(request.getRole().name());
 
-        event.setDepartment(
-                request.getDepartment()
-        );
+        // Передаём список UUID специализаций.
+        event.setSpecializationIds(request.getSpecializationIds());
 
-        event.setSpecialization(
-                request.getSpecialization()
-        );
+        // Старое поле временно сохраняем для совместимости.
+        event.setSpecialization(request.getSpecialization());
 
-        event.setPosition(
-                request.getPosition()
-        );
-
-        event.setRole(
-                request.getRole().name()
-        );
-
-        if (request.getZoneId() != null &&
-                !request.getZoneId().isBlank()) {
+        if (request.getZoneId() != null
+                && !request.getZoneId().isBlank()) {
 
             try {
-
-                event.setZoneId(
-                        UUID.fromString(
-                                request.getZoneId()
-                        )
-                );
-
+                event.setZoneId(UUID.fromString(request.getZoneId()));
             } catch (IllegalArgumentException e) {
-
                 throw new ApiException(
-                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        HttpStatus.BAD_REQUEST,
                         "Некорректный UUID зоны"
                 );
             }
@@ -112,7 +88,7 @@ public class UserProfileProducer {
         );
 
         log.info(
-                "Kafka -> отправлено событие создания профиля: authUserId={}, role={}",
+                "Kafka -> создание профиля сотрудника: authUserId={}, role={}",
                 user.getId(),
                 request.getRole()
         );

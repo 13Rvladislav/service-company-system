@@ -1,3 +1,4 @@
+
 package ru.servicecompany.user.config;
 
 import lombok.RequiredArgsConstructor;
@@ -18,19 +19,27 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
 
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
 
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
 
                 .authorizeHttpRequests(auth -> auth
 
                         // CORS preflight
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(
+                                HttpMethod.OPTIONS,
+                                "/**"
+                        ).permitAll()
 
                         // Swagger
                         .requestMatchers(
@@ -38,13 +47,53 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
 
-                        // Внутренние endpoint'ы
-                        .requestMatchers("/internal/**").permitAll()
+                        // Внутренние endpoint'ы микросервисов
+                        .requestMatchers("/internal/**")
+                        .permitAll()
 
-                        // Профиль
-                        .requestMatchers("/api/profile/me").authenticated()
+                        // Создание специализации
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/specializations"
+                        ).hasRole("ADMIN")
 
-                        .anyRequest().authenticated()
+                        // Редактирование специализации
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/specializations/**"
+                        ).hasRole("ADMIN")
+
+                        // Удаление специализации
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/specializations/**"
+                        ).hasRole("ADMIN")
+
+                        // Просмотр справочника специализаций
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/specializations/**"
+                        ).authenticated()
+
+                        // Просмотр назначенных специализаций мастера
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/masters/*/specializations"
+                        ).hasAnyRole("ADMIN", "DISPATCHER")
+
+                        // Назначение специализаций мастеру
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/masters/*/specializations"
+                        ).hasAnyRole("ADMIN", "DISPATCHER")
+
+                        // Текущий профиль пользователя
+                        .requestMatchers("/api/profile/me")
+                        .authenticated()
+
+                        // Все остальные endpoint'ы
+                        .anyRequest()
+                        .authenticated()
                 )
 
                 .httpBasic(AbstractHttpConfigurer::disable)

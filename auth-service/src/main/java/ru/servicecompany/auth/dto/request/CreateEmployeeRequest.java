@@ -5,6 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 import ru.servicecompany.auth.entity.RoleName;
 
+import java.util.List;
+import java.util.UUID;
+
 @Getter
 @Setter
 public class CreateEmployeeRequest {
@@ -28,8 +31,15 @@ public class CreateEmployeeRequest {
     private String employeeNumber;
 
     private String department;
+
+    // Старое поле временно оставляем для совместимости.
     private String specialization;
+
+    // Новое поле: UUID специализаций из справочника user-service.
+    private List<UUID> specializationIds;
+
     private String zoneId;
+
     private String position;
 
     @NotNull
