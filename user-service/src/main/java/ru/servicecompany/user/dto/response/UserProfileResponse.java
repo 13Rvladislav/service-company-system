@@ -2,6 +2,7 @@ package ru.servicecompany.user.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
+import ru.servicecompany.user.dto.response.ZoneResponse;
 
 import java.util.List;
 import java.util.UUID;

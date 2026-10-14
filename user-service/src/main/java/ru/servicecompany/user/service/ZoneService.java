@@ -57,6 +57,7 @@ public class ZoneService {
     /**
      * Обновить название и описание зоны.
      */
+    @Transactional
     public ZoneResponse update(UUID id, UpdateZoneRequest request) {
         Zone zone = zoneRepository.findById(id)
                 .orElseThrow(() -> new ApiException(
@@ -105,14 +106,9 @@ public class ZoneService {
      */
     @Transactional(readOnly = true)
     public List<ZoneResponse> getMasterZones(UUID masterId) {
-        if (!masterProfileRepository.existsById(masterId)) {
-            throw new ApiException(
-                    HttpStatus.NOT_FOUND,
-                    "Профиль мастера не найден"
-            );
-        }
+        MasterProfile master = findMaster(masterId);
 
-        return masterZoneRepository.findAllByMaster_Id(masterId)
+        return masterZoneRepository.findAllByMaster_Id(master.getId())
                 .stream()
                 .map(MasterZone::getZone)
                 .map(this::map)
@@ -130,11 +126,7 @@ public class ZoneService {
             UUID masterId,
             AssignMasterZonesRequest request
     ) {
-        MasterProfile master = masterProfileRepository.findById(masterId)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "Профиль мастера не найден"
-                ));
+        MasterProfile master = findMaster(masterId);
 
         List<UUID> zoneIds = request.getZoneIds();
 
@@ -142,6 +134,13 @@ public class ZoneService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Список зон не может быть null"
+            );
+        }
+
+        if (zoneIds.stream().anyMatch(id -> id == null)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "ID зоны не может быть null"
             );
         }
 
@@ -154,8 +153,8 @@ public class ZoneService {
             );
         }
 
-        // Проверяем все зоны до изменения существующих назначений.
-        List<Zone> zones = zoneRepository.findAllById(zoneIds);
+        // Сначала проверяем все зоны.
+        List<Zone> zones = zoneRepository.findAllById(uniqueZoneIds);
 
         if (zones.size() != uniqueZoneIds.size()) {
             throw new ApiException(
@@ -164,10 +163,10 @@ public class ZoneService {
             );
         }
 
-        // Удаляем прежние назначения мастера.
-        masterZoneRepository.deleteAllByMaster_Id(masterId);
+        // Удаляем прежние назначения именно найденного профиля.
+        masterZoneRepository.deleteAllByMasterIdImmediately(master.getId());
 
-        // Создаём новые назначения.
+        // Сохраняем новые назначения.
         List<MasterZone> assignments = zones.stream()
                 .map(zone -> new MasterZone(master, zone))
                 .toList();
@@ -177,6 +176,19 @@ public class ZoneService {
         return zones.stream()
                 .map(this::map)
                 .toList();
+    }
+
+    /**
+     * Найти профиль мастера по ID профиля
+     * или по authUserId из auth-service.
+     */
+    private MasterProfile findMaster(UUID id) {
+        return masterProfileRepository.findById(id)
+                .or(() -> masterProfileRepository.findByAuthUserId(id))
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Профиль мастера не найден"
+                ));
     }
 
     /**

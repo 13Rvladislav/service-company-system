@@ -2,6 +2,9 @@
 package ru.servicecompany.user.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import ru.servicecompany.user.entity.MasterZone;
 
 import java.util.List;
@@ -17,7 +20,12 @@ public interface MasterZoneRepository extends JpaRepository<MasterZone, UUID> {
 
     void deleteByMaster_IdAndZone_Id(UUID masterId, UUID zoneId);
 
-    void deleteAllByMaster_Id(UUID masterId);
+    @Modifying
+    @Query("""
+            DELETE FROM MasterZone mz
+            WHERE mz.master.id = :masterId
+            """)
+    void deleteAllByMasterIdImmediately(@Param("masterId") UUID masterId);
 
     boolean existsByZone_Id(UUID zoneId);
 }

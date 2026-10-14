@@ -1,4 +1,4 @@
-package ru.servicecompany.auth.dto.response;
+package ru.servicecompany.user.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
