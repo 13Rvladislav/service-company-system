@@ -11,6 +11,8 @@ import ru.servicecompany.user.service.ZoneService;
 import java.util.List;
 import java.util.UUID;
 
+import ru.servicecompany.user.dto.request.AssignMasterZonesRequest;
+
 @RestController
 @RequestMapping("/api/zones")
 @RequiredArgsConstructor
@@ -45,6 +47,27 @@ public class ZoneController {
             @RequestBody @Valid UpdateZoneRequest request
     ) {
         return zoneService.update(id, request);
+    }
+
+    /**
+     * Получить все зоны мастера.
+     */
+    @GetMapping("/masters/{masterId}")
+    public List<ZoneResponse> getMasterZones(
+            @PathVariable UUID masterId
+    ) {
+        return zoneService.getMasterZones(masterId);
+    }
+
+    /**
+     * Заменить список зон мастера.
+     */
+    @PutMapping("/masters/{masterId}")
+    public List<ZoneResponse> assignMasterZones(
+            @PathVariable UUID masterId,
+            @RequestBody @Valid AssignMasterZonesRequest request
+    ) {
+        return zoneService.assignMasterZones(masterId, request);
     }
 
     /**

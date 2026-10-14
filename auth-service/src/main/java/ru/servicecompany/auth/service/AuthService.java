@@ -1,3 +1,4 @@
+
 package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
@@ -6,6 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import ru.servicecompany.auth.common.exception.ApiException;
 import ru.servicecompany.auth.dto.request.*;
+import ru.servicecompany.auth.dto.response.AdminUserCardResponse;
 import ru.servicecompany.auth.dto.response.AdminUserResponse;
 import ru.servicecompany.auth.dto.response.CreateEmployeeResponse;
 import ru.servicecompany.auth.dto.response.LoginResponse;
@@ -15,19 +17,18 @@ import ru.servicecompany.auth.entity.RoleName;
 import ru.servicecompany.auth.entity.User;
 import ru.servicecompany.auth.kafka.*;
 import ru.servicecompany.auth.kafka.event.ProfileDeleteResponseEvent;
+import ru.servicecompany.auth.kafka.event.ProfileResponseEvent;
 import ru.servicecompany.auth.kafka.event.ProfileUpdateResponseEvent;
 import ru.servicecompany.auth.repository.RoleRepository;
 import ru.servicecompany.auth.repository.UserRepository;
 import ru.servicecompany.auth.security.JwtService;
-import ru.servicecompany.auth.dto.response.AdminUserCardResponse;
-import ru.servicecompany.auth.kafka.event.ProfileResponseEvent;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +43,6 @@ public class AuthService {
     private final ProfileRequestManager profileRequestManager;
     private final ProfileUpdateRequestProducer profileUpdateRequestProducer;
     private final ProfileUpdateRequestManager profileUpdateRequestManager;
-
     private final ProfileDeleteRequestProducer profileDeleteRequestProducer;
     private final ProfileDeleteRequestManager profileDeleteRequestManager;
 
@@ -82,7 +82,6 @@ public class AuthService {
         user.setRole(role);
 
         userRepository.save(user);
-
         userProfileProducer.sendClientProfileCreate(user);
 
         return map(user);
@@ -99,12 +98,6 @@ public class AuthService {
                         "Неверный Email или пароль"
                 ));
 
-        /*
-         * Пользователь заблокирован администратором.
-         *
-         * Проверяем это до проверки пароля,
-         * чтобы пользователь получил понятное сообщение.
-         */
         if (!Boolean.TRUE.equals(user.getEnabled())) {
             throw new ApiException(
                     HttpStatus.FORBIDDEN,
@@ -136,9 +129,6 @@ public class AuthService {
 
     /**
      * Создание сотрудника.
-     * <p>
-     * Аккаунт создаётся в auth-service,
-     * профиль создаётся асинхронно в user-service через Kafka.
      */
     public CreateEmployeeResponse createEmployee(
             CreateEmployeeRequest request
@@ -164,8 +154,7 @@ public class AuthService {
                         "Роль не найдена"
                 ));
 
-        String temporaryPassword =
-                generateTemporaryPassword();
+        String temporaryPassword = generateTemporaryPassword();
 
         User user = new User();
 
@@ -174,38 +163,15 @@ public class AuthService {
         user.setMiddleName(request.getMiddleName());
         user.setPhone(request.getPhone());
         user.setEmail(request.getEmail());
-        user.setPassword(
-                passwordEncoder.encode(temporaryPassword)
-        );
+        user.setPassword(passwordEncoder.encode(temporaryPassword));
         user.setRole(role);
 
-        /*
-         * Создаём нового пользователя.
-         */
         userRepository.save(user);
 
         try {
-
-            /*
-             * Отправляем событие создания профиля.
-             */
-            userProfileProducer.sendEmployeeProfileCreate(
-                    user,
-                    request
-            );
-
+            userProfileProducer.sendEmployeeProfileCreate(user, request);
         } catch (Exception e) {
-
-            /*
-             * Событие не удалось отправить.
-             *
-             * User был создан только этой операцией,
-             * поэтому его можно удалить.
-             */
-            userRepository.deleteById(
-                    user.getId()
-            );
-
+            userRepository.deleteById(user.getId());
             throw e;
         }
 
@@ -225,18 +191,18 @@ public class AuthService {
                 "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
         SecureRandom random = new SecureRandom();
-
         StringBuilder password = new StringBuilder();
 
         for (int i = 0; i < 10; i++) {
-            password.append(
-                    chars.charAt(random.nextInt(chars.length()))
-            );
+            password.append(chars.charAt(random.nextInt(chars.length())));
         }
 
         return password.toString();
     }
 
+    /**
+     * Получение пользователей по роли.
+     */
     public List<AdminUserResponse> getUsersByRole(RoleName roleName) {
 
         return userRepository.findAllByRole_Name(roleName)
@@ -256,16 +222,7 @@ public class AuthService {
 
     /**
      * Получение полной карточки пользователя.
-     * <p>
-     * Данные собираются из:
-     * <p>
-     * auth-service:
-     * - email
-     * - enabled
-     * - основные данные User
-     * <p>
-     * user-service:
-     * - профиль в зависимости от роли
+     * Данные профиля запрашиваются из user-service через Kafka.
      */
     public AdminUserCardResponse getUserCard(UUID userId) {
 
@@ -275,32 +232,25 @@ public class AuthService {
                         "Пользователь не найден"
                 ));
 
-        String role =
-                user.getRole()
-                        .getName()
-                        .name();
-
+        String role = user.getRole().getName().name();
         UUID requestId = UUID.randomUUID();
 
         CompletableFuture<ProfileResponseEvent> future =
                 profileRequestManager.register(requestId);
 
         try {
-
             adminProfileRequestProducer.requestProfile(
                     requestId,
                     user.getId(),
                     role
             );
 
-            ProfileResponseEvent profile =
-                    future.get(
-                            5,
-                            TimeUnit.SECONDS
-                    );
+            ProfileResponseEvent profile = future.get(
+                    5,
+                    TimeUnit.SECONDS
+            );
 
             return AdminUserCardResponse.builder()
-
                     .id(user.getId())
                     .authUserId(profile.getAuthUserId())
 
@@ -310,7 +260,6 @@ public class AuthService {
 
                     .email(user.getEmail())
                     .phone(profile.getPhone())
-
                     .role(role)
 
                     .enabled(user.getEnabled())
@@ -322,24 +271,23 @@ public class AuthService {
                     .apartment(profile.getApartment())
 
                     .employeeNumber(profile.getEmployeeNumber())
-                    .specialization(profile.getSpecialization())
+                    .specializations(profile.getSpecializations())
                     .status(profile.getStatus())
 
+                    // Зоны обслуживания мастера
+                    .zones(profile.getZones())
+
                     .department(profile.getDepartment())
-
                     .position(profile.getPosition())
-
                     .build();
 
         } catch (TimeoutException e) {
-
             throw new ApiException(
                     HttpStatus.GATEWAY_TIMEOUT,
                     "Не удалось получить профиль пользователя"
             );
 
         } catch (InterruptedException e) {
-
             Thread.currentThread().interrupt();
 
             throw new ApiException(
@@ -348,17 +296,13 @@ public class AuthService {
             );
 
         } catch (Exception e) {
-
             throw new ApiException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Ошибка получения профиля пользователя"
             );
 
         } finally {
-
-            profileRequestManager.remove(
-                    requestId
-            );
+            profileRequestManager.remove(requestId);
         }
     }
 
@@ -377,7 +321,6 @@ public class AuthService {
                 ));
 
         user.setEnabled(enabled);
-
         userRepository.save(user);
 
         return AdminUserResponse.builder()
@@ -392,60 +335,43 @@ public class AuthService {
                 .build();
     }
 
+    /**
+     * Обновление пользователя и его профиля.
+     */
     public AdminUserCardResponse updateUser(
             UUID userId,
             UpdateAdminUserRequest request
     ) {
 
-        User user =
-                userRepository.findById(userId)
-                        .orElseThrow(() -> new ApiException(
-                                HttpStatus.NOT_FOUND,
-                                "Пользователь не найден"
-                        ));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Пользователь не найден"
+                ));
 
-        /*
-         * Проверяем Email.
-         */
         if (!user.getEmail().equalsIgnoreCase(request.getEmail())
                 && userRepository.existsByEmail(request.getEmail())) {
-
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким Email уже существует"
             );
         }
 
-        /*
-         * Проверяем телефон.
-         */
         if (!user.getPhone().equals(request.getPhone())
                 && userRepository.existsByPhone(request.getPhone())) {
-
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким телефоном уже существует"
             );
         }
 
-        String role =
-                user.getRole()
-                        .getName()
-                        .name();
-
-        UUID requestId =
-                UUID.randomUUID();
+        String role = user.getRole().getName().name();
+        UUID requestId = UUID.randomUUID();
 
         CompletableFuture<ProfileUpdateResponseEvent> future =
-                profileUpdateRequestManager.register(
-                        requestId
-                );
+                profileUpdateRequestManager.register(requestId);
 
         try {
-
-            /*
-             * Сначала обновляем профиль в user-service.
-             */
             profileUpdateRequestProducer.updateProfile(
                     requestId,
                     user.getId(),
@@ -472,14 +398,12 @@ public class AuthService {
                     request.getPosition()
             );
 
-            ProfileUpdateResponseEvent response =
-                    future.get(
-                            5,
-                            TimeUnit.SECONDS
-                    );
+            ProfileUpdateResponseEvent response = future.get(
+                    5,
+                    TimeUnit.SECONDS
+            );
 
             if (!response.isSuccess()) {
-
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         response.getReason() != null
@@ -488,46 +412,23 @@ public class AuthService {
                 );
             }
 
-            /*
-             * Профиль успешно обновлён.
-             * Теперь обновляем User в auth-service.
-             */
-            user.setFirstName(
-                    request.getFirstName()
-            );
-
-            user.setLastName(
-                    request.getLastName()
-            );
-
-            user.setMiddleName(
-                    request.getMiddleName()
-            );
-
-            user.setPhone(
-                    request.getPhone()
-            );
-
-            user.setEmail(
-                    request.getEmail()
-            );
+            user.setFirstName(request.getFirstName());
+            user.setLastName(request.getLastName());
+            user.setMiddleName(request.getMiddleName());
+            user.setPhone(request.getPhone());
+            user.setEmail(request.getEmail());
 
             userRepository.save(user);
 
-            /*
-             * Возвращаем актуальную карточку.
-             */
             return getUserCard(userId);
 
         } catch (TimeoutException e) {
-
             throw new ApiException(
                     HttpStatus.GATEWAY_TIMEOUT,
                     "Не удалось обновить профиль пользователя"
             );
 
         } catch (InterruptedException e) {
-
             Thread.currentThread().interrupt();
 
             throw new ApiException(
@@ -536,24 +437,22 @@ public class AuthService {
             );
 
         } catch (ApiException e) {
-
             throw e;
 
         } catch (Exception e) {
-
             throw new ApiException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Ошибка обновления пользователя"
             );
 
         } finally {
-
-            profileUpdateRequestManager.remove(
-                    requestId
-            );
+            profileUpdateRequestManager.remove(requestId);
         }
     }
 
+    /**
+     * Удаление пользователя и его профиля.
+     */
     public void deleteUser(UUID userId) {
 
         User user = userRepository.findById(userId)
@@ -562,34 +461,25 @@ public class AuthService {
                         "Пользователь не найден"
                 ));
 
-        String role =
-                user.getRole()
-                        .getName()
-                        .name();
-
+        String role = user.getRole().getName().name();
         UUID requestId = UUID.randomUUID();
 
         CompletableFuture<ProfileDeleteResponseEvent> future =
-                profileDeleteRequestManager.register(
-                        requestId
-                );
+                profileDeleteRequestManager.register(requestId);
 
         try {
-
             profileDeleteRequestProducer.deleteProfile(
                     requestId,
                     user.getId(),
                     role
             );
 
-            ProfileDeleteResponseEvent response =
-                    future.get(
-                            5,
-                            TimeUnit.SECONDS
-                    );
+            ProfileDeleteResponseEvent response = future.get(
+                    5,
+                    TimeUnit.SECONDS
+            );
 
             if (!response.isSuccess()) {
-
                 throw new ApiException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         response.getReason() != null
@@ -598,21 +488,15 @@ public class AuthService {
                 );
             }
 
-            /*
-             * Профиль успешно удалён.
-             * Теперь удаляем аккаунт из auth-service.
-             */
             userRepository.delete(user);
 
         } catch (TimeoutException e) {
-
             throw new ApiException(
                     HttpStatus.GATEWAY_TIMEOUT,
                     "Не удалось удалить профиль пользователя"
             );
 
         } catch (InterruptedException e) {
-
             Thread.currentThread().interrupt();
 
             throw new ApiException(
@@ -621,21 +505,16 @@ public class AuthService {
             );
 
         } catch (ApiException e) {
-
             throw e;
 
         } catch (Exception e) {
-
             throw new ApiException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Ошибка удаления пользователя"
             );
 
         } finally {
-
-            profileDeleteRequestManager.remove(
-                    requestId
-            );
+            profileDeleteRequestManager.remove(requestId);
         }
     }
 

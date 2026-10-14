@@ -1,7 +1,15 @@
-package ru.servicecompany.auth.kafka.event;
 
-import lombok.*;
+        package ru.servicecompany.auth.kafka.event;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import ru.servicecompany.auth.dto.response.SpecializationResponse;
+import ru.servicecompany.auth.dto.response.ZoneResponse;
+
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -12,9 +20,7 @@ import java.util.UUID;
 public class ProfileResponseEvent {
 
     private UUID requestId;
-
     private UUID authUserId;
-
     private UUID id;
 
     private String role;
@@ -27,23 +33,20 @@ public class ProfileResponseEvent {
     private Boolean hasAvatar;
 
     // CLIENT
-
     private UUID cityId;
     private UUID streetId;
     private UUID houseId;
     private String apartment;
 
     // ENGINEER
-
     private String employeeNumber;
-    private String specialization;
+    private List<SpecializationResponse> specializations;
     private String status;
+    private List<ZoneResponse> zones;
 
     // DISPATCHER
-
     private String department;
 
     // ADMIN
-
     private String position;
 }

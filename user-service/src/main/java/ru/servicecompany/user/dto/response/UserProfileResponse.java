@@ -32,7 +32,7 @@ public class UserProfileResponse {
     private String employeeNumber;
     private List<SpecializationResponse> specializations;
     private String status;
-    private UUID zoneId;
+    private List<ZoneResponse> zones;
 
     // DISPATCHER
     private String department;

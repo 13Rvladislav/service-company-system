@@ -1,17 +1,26 @@
+
 package ru.servicecompany.user.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.servicecompany.user.common.exception.ApiException;
+import ru.servicecompany.user.dto.request.AssignMasterZonesRequest;
 import ru.servicecompany.user.dto.request.CreateZoneRequest;
 import ru.servicecompany.user.dto.request.UpdateZoneRequest;
 import ru.servicecompany.user.dto.response.ZoneResponse;
+import ru.servicecompany.user.entity.MasterProfile;
+import ru.servicecompany.user.entity.MasterZone;
 import ru.servicecompany.user.entity.Zone;
+import ru.servicecompany.user.repository.MasterProfileRepository;
+import ru.servicecompany.user.repository.MasterZoneRepository;
 import ru.servicecompany.user.repository.StreetRepository;
 import ru.servicecompany.user.repository.ZoneRepository;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -20,12 +29,13 @@ public class ZoneService {
 
     private final ZoneRepository zoneRepository;
     private final StreetRepository streetRepository;
+    private final MasterProfileRepository masterProfileRepository;
+    private final MasterZoneRepository masterZoneRepository;
 
     /**
      * Создать зону.
      */
     public ZoneResponse create(CreateZoneRequest request) {
-
         Zone zone = new Zone();
         zone.setName(request.getName());
         zone.setDescription(request.getDescription());
@@ -36,8 +46,8 @@ public class ZoneService {
     /**
      * Получить все зоны.
      */
+    @Transactional(readOnly = true)
     public List<ZoneResponse> getAll() {
-
         return zoneRepository.findAll()
                 .stream()
                 .map(this::map)
@@ -48,7 +58,6 @@ public class ZoneService {
      * Обновить название и описание зоны.
      */
     public ZoneResponse update(UUID id, UpdateZoneRequest request) {
-
         Zone zone = zoneRepository.findById(id)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
@@ -63,10 +72,11 @@ public class ZoneService {
 
     /**
      * Удалить зону.
-     * Запрещено, если к зоне привязаны улицы.
+     * Удаление запрещено, если с зоной связаны улицы
+     * или за зоной закреплены мастера.
      */
+    @Transactional
     public void delete(UUID id) {
-
         Zone zone = zoneRepository.findById(id)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
@@ -80,14 +90,99 @@ public class ZoneService {
             );
         }
 
+        if (masterZoneRepository.existsByZone_Id(id)) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Невозможно удалить зону: за ней закреплены мастера"
+            );
+        }
+
         zoneRepository.delete(zone);
+    }
+
+    /**
+     * Получить все зоны, закреплённые за мастером.
+     */
+    @Transactional(readOnly = true)
+    public List<ZoneResponse> getMasterZones(UUID masterId) {
+        if (!masterProfileRepository.existsById(masterId)) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "Профиль мастера не найден"
+            );
+        }
+
+        return masterZoneRepository.findAllByMaster_Id(masterId)
+                .stream()
+                .map(MasterZone::getZone)
+                .map(this::map)
+                .toList();
+    }
+
+    /**
+     * Полностью обновить список зон мастера.
+     *
+     * Переданный список заменяет все текущие назначения.
+     * Пустой список снимает все назначения.
+     */
+    @Transactional
+    public List<ZoneResponse> assignMasterZones(
+            UUID masterId,
+            AssignMasterZonesRequest request
+    ) {
+        MasterProfile master = masterProfileRepository.findById(masterId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Профиль мастера не найден"
+                ));
+
+        List<UUID> zoneIds = request.getZoneIds();
+
+        if (zoneIds == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Список зон не может быть null"
+            );
+        }
+
+        Set<UUID> uniqueZoneIds = new HashSet<>(zoneIds);
+
+        if (uniqueZoneIds.size() != zoneIds.size()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Список содержит повторяющиеся зоны"
+            );
+        }
+
+        // Проверяем все зоны до изменения существующих назначений.
+        List<Zone> zones = zoneRepository.findAllById(zoneIds);
+
+        if (zones.size() != uniqueZoneIds.size()) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "Одна или несколько зон не найдены"
+            );
+        }
+
+        // Удаляем прежние назначения мастера.
+        masterZoneRepository.deleteAllByMaster_Id(masterId);
+
+        // Создаём новые назначения.
+        List<MasterZone> assignments = zones.stream()
+                .map(zone -> new MasterZone(master, zone))
+                .toList();
+
+        masterZoneRepository.saveAll(assignments);
+
+        return zones.stream()
+                .map(this::map)
+                .toList();
     }
 
     /**
      * Entity -> DTO.
      */
     private ZoneResponse map(Zone zone) {
-
         return ZoneResponse.builder()
                 .id(zone.getId())
                 .name(zone.getName())

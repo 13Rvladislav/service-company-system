@@ -11,6 +11,7 @@ import ru.servicecompany.user.dto.request.CreateUserProfileRequest;
 import ru.servicecompany.user.dto.request.UpdateUserProfileRequest;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
 import ru.servicecompany.user.dto.response.SpecializationResponse;
+import ru.servicecompany.user.dto.response.ZoneResponse;
 import ru.servicecompany.user.entity.*;
 import ru.servicecompany.user.kafka.event.ProfileUpdateRequestEvent;
 import ru.servicecompany.user.repository.*;
@@ -20,7 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
+import ru.servicecompany.user.repository.MasterZoneRepository;
 @Service
 @RequiredArgsConstructor
 public class UserProfileService {
@@ -32,7 +33,7 @@ public class UserProfileService {
     private final HouseRepository houseRepository;
     private final ZoneRepository zoneRepository;
     private final MasterSpecializationRepository specializationRepository;
-
+    private final MasterZoneRepository masterZoneRepository;
     /**
      * Создание профиля клиента.
      */
@@ -93,6 +94,7 @@ public class UserProfileService {
                         .status(p.getStatus().name())
                         .role(principal.role())
                         .hasAvatar(p.getAvatar() != null && p.getAvatar().length > 0)
+                        .zones(mapMasterZones(p.getId()))
                         .build();
             }
 
@@ -221,6 +223,7 @@ public class UserProfileService {
                         .status(profile.getStatus().name())
                         .role(principal.role())
                         .hasAvatar(profile.getAvatar() != null && profile.getAvatar().length > 0)
+                        .zones(mapMasterZones(profile.getId()))
                         .build();
             }
 
@@ -435,6 +438,7 @@ public class UserProfileService {
                         .specializations(mapSpecializations(profile.getSpecializations()))
                         .status(profile.getStatus().name())
                         .role(role)
+                        .zones(mapMasterZones(profile.getId()))
                         .hasAvatar(
                                 profile.getAvatar() != null &&
                                         profile.getAvatar().length > 0
@@ -912,7 +916,17 @@ public class UserProfileService {
                 .build();
     }
 
-
+    private List<ZoneResponse> mapMasterZones(UUID masterId) {
+        return masterZoneRepository.findAllByMaster_Id(masterId)
+                .stream()
+                .map(MasterZone::getZone)
+                .map(zone -> ZoneResponse.builder()
+                        .id(zone.getId())
+                        .name(zone.getName())
+                        .description(zone.getDescription())
+                        .build())
+                .toList();
+    }
     /**
      * Преобразует специализации мастера в DTO для ответа API.
      */

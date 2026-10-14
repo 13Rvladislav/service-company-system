@@ -50,6 +50,7 @@ public class ProfileResponseProducer {
                 .status(profile.getStatus())
                 .department(profile.getDepartment())
                 .position(profile.getPosition())
+                .zones(profile.getZones())
                 .build();
 
         kafkaTemplate.send(

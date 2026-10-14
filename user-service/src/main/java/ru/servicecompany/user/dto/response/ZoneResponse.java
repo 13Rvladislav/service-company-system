@@ -1,4 +1,4 @@
-package ru.servicecompany.user.dto.response;
+package ru.servicecompany.auth.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -10,8 +10,6 @@ import java.util.UUID;
 public class ZoneResponse {
 
     private UUID id;
-
     private String name;
-
     private String description;
 }
