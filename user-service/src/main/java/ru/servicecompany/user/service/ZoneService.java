@@ -164,7 +164,7 @@ public class ZoneService {
         }
 
         // Удаляем прежние назначения именно найденного профиля.
-        masterZoneRepository.deleteAllByMasterIdImmediately(master.getId());
+        masterZoneRepository.deleteAllByMaster_Id(master.getId());
 
         // Сохраняем новые назначения.
         List<MasterZone> assignments = zones.stream()
