@@ -10,6 +10,7 @@ import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -18,12 +19,6 @@ public class RequestService {
 
     private final ServiceRequestRepository serviceRequestRepository;
 
-    /**
-     * Создаёт новую заявку.
-     *
-     * clientId пока передаётся параметром.
-     * Позже будем получать его из авторизованного пользователя.
-     */
     @Transactional
     public RequestResponse createRequest(
             UUID clientId,
@@ -38,16 +33,23 @@ public class RequestService {
         serviceRequest.setClientComment(request.clientComment());
         serviceRequest.setPreferredVisitAt(request.preferredVisitAt());
 
-        // Мастер пока не назначен.
+        // Мастер будет назначен отдельным процессом.
         serviceRequest.setMasterId(null);
-
-        // Автоматическое распределение добавим следующим этапом.
         serviceRequest.setStatus(RequestStatus.NEW);
 
         ServiceRequest savedRequest =
                 serviceRequestRepository.save(serviceRequest);
 
         return toResponse(savedRequest);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RequestResponse> getMyRequests(UUID clientId) {
+        return serviceRequestRepository
+                .findAllByClientIdOrderByCreatedAtDesc(clientId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     private RequestResponse toResponse(ServiceRequest request) {

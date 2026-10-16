@@ -13,32 +13,17 @@ import java.util.UUID;
 public interface ServiceRequestRepository
         extends JpaRepository<ServiceRequest, UUID> {
 
-    /**
-     * Все заявки конкретного клиента.
-     */
-    List<ServiceRequest> findAllByClientId(UUID clientId);
+    List<ServiceRequest> findAllByClientIdOrderByCreatedAtDesc(UUID clientId);
 
-    /**
-     * Все заявки, назначенные конкретному мастеру.
-     */
     List<ServiceRequest> findAllByMasterId(UUID masterId);
 
-    /**
-     * Все заявки с определённым статусом.
-     */
     List<ServiceRequest> findAllByStatus(RequestStatus status);
 
-    /**
-     * Заявки клиента с определённым статусом.
-     */
     List<ServiceRequest> findAllByClientIdAndStatus(
             UUID clientId,
             RequestStatus status
     );
 
-    /**
-     * Заявки мастера с определённым статусом.
-     */
     List<ServiceRequest> findAllByMasterIdAndStatus(
             UUID masterId,
             RequestStatus status

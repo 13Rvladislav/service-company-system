@@ -50,6 +50,11 @@ public class SecurityConfig {
                                 "/api/requests"
                         ).hasRole("CLIENT")
 
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/requests/my"
+                        ).hasRole("CLIENT")
+
                         .anyRequest().authenticated()
                 )
 
