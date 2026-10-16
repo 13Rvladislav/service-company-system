@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,10 +15,12 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import ru.servicecompany.requestservice.config.JwtUserPrincipal;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
+import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
 import ru.servicecompany.requestservice.service.RequestService;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/requests")
@@ -48,5 +52,35 @@ public class RequestController {
                 (JwtUserPrincipal) authentication.getPrincipal();
 
         return requestService.getMyRequests(principal.userId());
+    }
+
+    @PatchMapping("/{id}")
+    public RequestResponse updateRequest(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateRequestRequest request
+    ) {
+        JwtUserPrincipal principal =
+                (JwtUserPrincipal) authentication.getPrincipal();
+
+        return requestService.updateRequest(
+                principal.userId(),
+                id,
+                request
+        );
+    }
+
+    @PostMapping("/{id}/cancel")
+    public RequestResponse cancelRequest(
+            Authentication authentication,
+            @PathVariable UUID id
+    ) {
+        JwtUserPrincipal principal =
+                (JwtUserPrincipal) authentication.getPrincipal();
+
+        return requestService.cancelRequest(
+                principal.userId(),
+                id
+        );
     }
 }

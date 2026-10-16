@@ -2,9 +2,12 @@
 package ru.servicecompany.requestservice.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
+import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
@@ -24,6 +27,13 @@ public class RequestService {
             UUID clientId,
             CreateRequestRequest request
     ) {
+        if (request.equipmentId() == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Необходимо выбрать оборудование"
+            );
+        }
+
         ServiceRequest serviceRequest = new ServiceRequest();
 
         serviceRequest.setClientId(clientId);
@@ -32,15 +42,10 @@ public class RequestService {
         serviceRequest.setProblemDescription(request.problemDescription());
         serviceRequest.setClientComment(request.clientComment());
         serviceRequest.setPreferredVisitAt(request.preferredVisitAt());
-
-        // Мастер будет назначен отдельным процессом.
         serviceRequest.setMasterId(null);
         serviceRequest.setStatus(RequestStatus.NEW);
 
-        ServiceRequest savedRequest =
-                serviceRequestRepository.save(serviceRequest);
-
-        return toResponse(savedRequest);
+        return toResponse(serviceRequestRepository.save(serviceRequest));
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +55,96 @@ public class RequestService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public RequestResponse updateRequest(
+            UUID clientId,
+            UUID requestId,
+            UpdateRequestRequest update
+    ) {
+        ServiceRequest request = getRequestForUpdate(requestId);
+
+        checkOwner(request, clientId);
+        checkCanBeChanged(request);
+
+        if (update.problemDescription() == null
+                || update.problemDescription().isBlank()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Описание проблемы обязательно"
+            );
+        }
+
+        request.setProblemDescription(
+                update.problemDescription().trim()
+        );
+
+        // Форма редактирования передаёт все три поля.
+        // null позволяет очистить необязательное поле.
+        request.setClientComment(normalizeComment(update.clientComment()));
+        request.setPreferredVisitAt(update.preferredVisitAt());
+
+        return toResponse(serviceRequestRepository.save(request));
+    }
+
+    @Transactional
+    public RequestResponse cancelRequest(
+            UUID clientId,
+            UUID requestId
+    ) {
+        ServiceRequest request = getRequestForUpdate(requestId);
+
+        checkOwner(request, clientId);
+        checkCanBeChanged(request);
+
+        request.setStatus(RequestStatus.CANCELLED);
+
+        return toResponse(serviceRequestRepository.save(request));
+    }
+
+    private ServiceRequest getRequestForUpdate(UUID requestId) {
+        return serviceRequestRepository.findByIdForUpdate(requestId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Заявка не найдена"
+                ));
+    }
+
+    private void checkOwner(
+            ServiceRequest request,
+            UUID clientId
+    ) {
+        if (!request.getClientId().equals(clientId)) {
+            // Не раскрываем существование чужой заявки.
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "Заявка не найдена"
+            );
+        }
+    }
+
+    private void checkCanBeChanged(ServiceRequest request) {
+        boolean editable = switch (request.getStatus()) {
+            case NEW, WAITING_FOR_ASSIGNMENT, ASSIGNED -> true;
+            default -> false;
+        };
+
+        if (!editable) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Редактировать или отменять можно только заявку, "
+                            + "которую мастер ещё не принял"
+            );
+        }
+    }
+
+    private String normalizeComment(String comment) {
+        if (comment == null || comment.isBlank()) {
+            return null;
+        }
+
+        return comment.trim();
     }
 
     private RequestResponse toResponse(ServiceRequest request) {

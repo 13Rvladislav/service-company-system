@@ -17,6 +17,7 @@ public record CreateRequestRequest(
         @NotNull(message = "Необходимо указать адрес обслуживания")
         UUID addressId,
 
+        @NotNull(message = "Необходимо выбрать оборудование")
         UUID equipmentId,
 
         @NotBlank(message = "Опишите проблему")
