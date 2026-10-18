@@ -18,9 +18,11 @@ import ru.servicecompany.requestservice.config.JwtUserPrincipal;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.ClientProfileResponse;
+import ru.servicecompany.requestservice.dto.response.CreateRequestFormResponse;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
 import ru.servicecompany.requestservice.kafka.ProfileRequestService;
 import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
+import ru.servicecompany.requestservice.service.CreateRequestFormService;
 import ru.servicecompany.requestservice.service.RequestService;
 
 import java.util.List;
@@ -33,6 +35,7 @@ public class RequestController {
 
     private final RequestService requestService;
     private final ProfileRequestService profileRequestService;
+    private final CreateRequestFormService createRequestFormService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -88,7 +91,12 @@ public class RequestController {
                 id
         );
     }
-
+    @GetMapping("/create-form")
+    public CreateRequestFormResponse getCreateForm(
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return createRequestFormService.getCreateForm(principal);
+    }
     @GetMapping("/profile")
     public ClientProfileResponse getClientProfile(
             @AuthenticationPrincipal JwtUserPrincipal principal

@@ -27,6 +27,18 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
 
+    consumer:
+      client-id: equipment-service-user-equipment
+      group-id: equipment-service-user-equipment-group
+      auto-offset-reset: latest
+      enable-auto-commit: true
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.value.default.type: ru.servicecompany.equipment.kafka.event.EquipmentRequestEvent
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: ru.servicecompany.equipment.kafka.event
+
 springdoc:
   swagger-ui:
     path: /swagger
@@ -39,3 +51,6 @@ logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.kafka: INFO
+    org.springframework.kafka.config: INFO
+    org.springframework.kafka.listener: INFO
+    org.apache.kafka.clients.consumer: INFO
