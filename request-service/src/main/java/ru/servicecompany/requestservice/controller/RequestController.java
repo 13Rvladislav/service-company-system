@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +18,8 @@ import ru.servicecompany.requestservice.config.JwtUserPrincipal;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
+import ru.servicecompany.requestservice.kafka.ProfileRequestService;
+import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
 import ru.servicecompany.requestservice.service.RequestService;
 
 import java.util.List;
@@ -28,6 +31,7 @@ import java.util.UUID;
 public class RequestController {
 
     private final RequestService requestService;
+    private final ProfileRequestService profileRequestService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -83,4 +87,15 @@ public class RequestController {
                 id
         );
     }
+
+    @GetMapping("/profile")
+    public ProfileResponseEvent getClientProfile(
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        return profileRequestService.getProfile(
+                principal.userId(),
+                principal.role()
+        );
+    }
+
 }
