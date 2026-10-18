@@ -34,9 +34,15 @@ public class ProfileResponseEvent {
     private Boolean hasAvatar;
 
     // CLIENT
+
     private UUID cityId;
     private UUID streetId;
     private UUID houseId;
+
+    private String cityName;
+    private String streetName;
+    private String houseNumber;
+
     private String apartment;
 
     // MASTER

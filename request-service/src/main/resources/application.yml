@@ -49,8 +49,8 @@ jwt:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    org.springframework.kafka: DEBUG
-    org.springframework.kafka.config: DEBUG
-    org.springframework.kafka.listener: DEBUG
-    org.apache.kafka.clients.consumer: DEBUG
+    org.springframework.security: INFO
+    org.springframework.kafka: INFO
+    org.springframework.kafka.config: INFO
+    org.springframework.kafka.listener: INFO
+    org.apache.kafka.clients.consumer: INFO

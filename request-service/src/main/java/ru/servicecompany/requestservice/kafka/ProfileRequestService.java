@@ -34,7 +34,7 @@ public class ProfileRequestService {
                     role
             );
 
-            return responseFuture.get(5, TimeUnit.SECONDS);
+            return responseFuture.get(50, TimeUnit.SECONDS);
 
         } catch (TimeoutException e) {
             throw new ApiException(

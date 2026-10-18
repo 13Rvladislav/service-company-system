@@ -14,41 +14,30 @@ import java.util.UUID;
 @Builder
 public class ProfileResponseEvent {
 
-    /**
-     * Идентификатор исходного запроса.
-     */
+    // Корреляция Kafka
     private UUID requestId;
 
-    /**
-     * ID пользователя из auth-service.
-     */
+    // Пользователь и профиль
     private UUID authUserId;
-
-    /**
-     * ID профильной записи.
-     */
     private UUID id;
-
-    /**
-     * Роль пользователя.
-     */
     private String role;
 
+    // Основные данные
     private String firstName;
     private String lastName;
     private String middleName;
     private String phone;
-
-    /**
-     * Есть ли аватар.
-     */
     private Boolean hasAvatar;
 
-    // CLIENT
-
+    // CLIENT: адрес
     private UUID cityId;
     private UUID streetId;
     private UUID houseId;
+
+    private String cityName;
+    private String streetName;
+    private String houseNumber;
+
     private String apartment;
 
     // ENGINEER
@@ -58,10 +47,8 @@ public class ProfileResponseEvent {
     private String status;
 
     // DISPATCHER
-
     private String department;
 
     // ADMIN
-
     private String position;
 }

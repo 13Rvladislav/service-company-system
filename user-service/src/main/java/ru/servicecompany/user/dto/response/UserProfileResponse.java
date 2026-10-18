@@ -2,7 +2,6 @@ package ru.servicecompany.user.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;
-import ru.servicecompany.user.dto.response.ZoneResponse;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,10 +22,16 @@ public class UserProfileResponse {
     private String role;
     private Boolean hasAvatar;
 
-    // Адрес (ID для каскадных списков)
+    // Адрес: идентификаторы
     private UUID cityId;
     private UUID streetId;
     private UUID houseId;
+
+    // Адрес: названия
+    private String cityName;
+    private String streetName;
+    private String houseNumber;
+
     private String apartment;
 
     // ENGINEER

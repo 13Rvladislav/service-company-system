@@ -1,10 +1,10 @@
-
 package ru.servicecompany.user.kafka;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+
 import ru.servicecompany.user.dto.response.SpecializationResponse;
 import ru.servicecompany.user.dto.response.UserProfileResponse;
 import ru.servicecompany.user.kafka.event.ProfileResponseEvent;
@@ -20,7 +20,8 @@ public class ProfileResponseProducer {
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     /**
-     * Отправляет профиль обратно в auth-service.
+     * Отправляет профиль обратно в сервис,
+     * который запросил данные.
      */
     public void profileResponse(
             UUID requestId,
@@ -36,15 +37,26 @@ public class ProfileResponseProducer {
                 .authUserId(authUserId)
                 .id(profile.getId())
                 .role(profile.getRole())
+
                 .firstName(profile.getFirstName())
                 .lastName(profile.getLastName())
                 .middleName(profile.getMiddleName())
                 .phone(profile.getPhone())
                 .hasAvatar(profile.getHasAvatar())
+
+                // Адрес: ID
                 .cityId(profile.getCityId())
                 .streetId(profile.getStreetId())
                 .houseId(profile.getHouseId())
+
+                // Адрес: названия
+                .cityName(profile.getCityName())
+                .streetName(profile.getStreetName())
+                .houseNumber(profile.getHouseNumber())
+
                 .apartment(profile.getApartment())
+
+                // Данные мастера
                 .employeeNumber(profile.getEmployeeNumber())
                 .specializations(specializations)
                 .status(profile.getStatus())
@@ -60,7 +72,7 @@ public class ProfileResponseProducer {
         );
 
         log.info(
-                "Kafka -> профиль отправлен обратно: requestId={}, authUserId={}, role={}",
+                "Kafka -> профиль отправлен: requestId={}, authUserId={}, role={}",
                 requestId,
                 authUserId,
                 profile.getRole()

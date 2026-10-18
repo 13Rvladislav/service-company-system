@@ -738,16 +738,31 @@ public class UserProfileService {
         UUID streetId = null;
         UUID houseId = null;
 
+        String cityName = null;
+        String streetName = null;
+        String houseNumber = null;
+
+        // Получаем адрес клиента
         if (profile.getHouse() != null) {
 
-            houseId = profile.getHouse().getId();
+            House house = profile.getHouse();
 
-            if (profile.getHouse().getStreet() != null) {
+            houseId = house.getId();
+            houseNumber = house.getNumber();
 
-                streetId = profile.getHouse().getStreet().getId();
+            if (house.getStreet() != null) {
 
-                if (profile.getHouse().getStreet().getCity() != null) {
-                    cityId = profile.getHouse().getStreet().getCity().getId();
+                Street street = house.getStreet();
+
+                streetId = street.getId();
+                streetName = street.getName();
+
+                if (street.getCity() != null) {
+
+                    City city = street.getCity();
+
+                    cityId = city.getId();
+                    cityName = city.getName();
                 }
             }
         }
@@ -766,9 +781,16 @@ public class UserProfileService {
                 .email(email)
                 .phone(profile.getPhone())
 
+                // Адрес: ID
                 .cityId(cityId)
                 .streetId(streetId)
                 .houseId(houseId)
+
+                // Адрес: названия
+                .cityName(cityName)
+                .streetName(streetName)
+                .houseNumber(houseNumber)
+
                 .apartment(profile.getApartment())
 
                 .role(role)

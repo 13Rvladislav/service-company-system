@@ -32,7 +32,7 @@ jwt:
 
 logging:
   level:
-    org.springframework.kafka: DEBUG
+    org.springframework.kafka: INFO
     org.springframework.kafka.listener: DEBUG
     org.apache.kafka.clients.consumer: INFO
     org.apache.kafka.clients.NetworkClient: INFO

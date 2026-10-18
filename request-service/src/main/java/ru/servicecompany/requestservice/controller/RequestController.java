@@ -1,4 +1,3 @@
-
 package ru.servicecompany.requestservice.controller;
 
 import jakarta.validation.Valid;
@@ -14,9 +13,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
 import ru.servicecompany.requestservice.config.JwtUserPrincipal;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
+import ru.servicecompany.requestservice.dto.response.ClientProfileResponse;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
 import ru.servicecompany.requestservice.kafka.ProfileRequestService;
 import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
@@ -89,13 +90,33 @@ public class RequestController {
     }
 
     @GetMapping("/profile")
-    public ProfileResponseEvent getClientProfile(
+    public ClientProfileResponse getClientProfile(
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
-        return profileRequestService.getProfile(
-                principal.userId(),
-                principal.role()
-        );
-    }
+        ProfileResponseEvent profile =
+                profileRequestService.getProfile(
+                        principal.userId(),
+                        principal.role()
+                );
 
+        return ClientProfileResponse.builder()
+                .id(profile.getId())
+                .authUserId(profile.getAuthUserId())
+                .role(profile.getRole())
+                .firstName(profile.getFirstName())
+                .lastName(profile.getLastName())
+                .middleName(profile.getMiddleName())
+                .phone(profile.getPhone())
+                .hasAvatar(profile.getHasAvatar())
+                .cityId(profile.getCityId())
+                .cityName(profile.getCityName())
+                .streetId(profile.getStreetId())
+                .streetName(profile.getStreetName())
+                .houseId(profile.getHouseId())
+                .houseNumber(profile.getHouseNumber())
+                .apartment(profile.getApartment())
+                .employeeNumber(profile.getEmployeeNumber())
+                .status(profile.getStatus())
+                .build();
+    }
 }
