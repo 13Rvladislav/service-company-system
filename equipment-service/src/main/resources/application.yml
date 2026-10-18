@@ -49,7 +49,7 @@ jwt:
 
 logging:
   level:
-    org.springframework.security: DEBUG
+    org.springframework.security: INFO
     org.springframework.kafka: INFO
     org.springframework.kafka.config: INFO
     org.springframework.kafka.listener: INFO

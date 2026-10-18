@@ -3,9 +3,11 @@ package ru.servicecompany.equipment;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.kafka.annotation.EnableKafka;
 
 @SpringBootApplication
 // Говорим Spring искать классы с @ConfigurationProperties
+@EnableKafka
 @ConfigurationPropertiesScan
 public class EquipmentServiceApplication {
 

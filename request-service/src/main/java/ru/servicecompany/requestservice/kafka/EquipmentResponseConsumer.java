@@ -25,6 +25,11 @@ public class EquipmentResponseConsumer {
 
         pendingRequests.put(requestId, future);
 
+        log.info(
+                "REQUEST SERVICE: зарегистрирован запрос оборудования, requestId={}",
+                requestId
+        );
+
         return future;
     }
 
@@ -33,27 +38,50 @@ public class EquipmentResponseConsumer {
     }
 
     @KafkaListener(
+            id = "equipmentResponseListener",
             topics = EquipmentKafkaTopics.EQUIPMENT_RESPONSE,
-            groupId = "request-service-equipment-response-group"
+            groupId = "request-service-equipment-response-group",
+            containerFactory = "equipmentResponseKafkaListenerContainerFactory"
     )
     public void consume(EquipmentResponseEvent event) {
 
-        if (event == null || event.getRequestId() == null) {
-            log.error("Получен некорректный ответ Kafka по оборудованию");
+        if (event == null) {
+            log.error(
+                    "REQUEST SERVICE: получен пустой ответ оборудования"
+            );
             return;
         }
 
+        UUID requestId = event.getRequestId();
+
+        if (requestId == null) {
+            log.error(
+                    "REQUEST SERVICE: ответ оборудования без requestId"
+            );
+            return;
+        }
+
+        log.info(
+                "REQUEST SERVICE: получен ответ оборудования, requestId={}",
+                requestId
+        );
+
         CompletableFuture<EquipmentResponseEvent> future =
-                pendingRequests.remove(event.getRequestId());
+                pendingRequests.remove(requestId);
 
         if (future == null) {
             log.warn(
-                    "Нет ожидающего запроса оборудования: {}",
-                    event.getRequestId()
+                    "REQUEST SERVICE: нет ожидающего запроса оборудования, requestId={}",
+                    requestId
             );
             return;
         }
 
         future.complete(event);
+
+        log.info(
+                "REQUEST SERVICE: ответ оборудования передан ожидающему запросу, requestId={}",
+                requestId
+        );
     }
 }

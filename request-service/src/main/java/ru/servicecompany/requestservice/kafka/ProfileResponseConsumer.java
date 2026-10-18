@@ -17,12 +17,18 @@ public class ProfileResponseConsumer {
     private final ConcurrentMap<UUID, CompletableFuture<ProfileResponseEvent>>
             pendingRequests = new ConcurrentHashMap<>();
 
-    public CompletableFuture<ProfileResponseEvent> registerRequest(UUID requestId) {
-        CompletableFuture<ProfileResponseEvent> future = new CompletableFuture<>();
+    public CompletableFuture<ProfileResponseEvent> registerRequest(
+            UUID requestId
+    ) {
+        CompletableFuture<ProfileResponseEvent> future =
+                new CompletableFuture<>();
 
         pendingRequests.put(requestId, future);
 
-        log.info("REQUEST SERVICE: зарегистрирован ожидающий запрос {}", requestId);
+        log.info(
+                "REQUEST SERVICE: зарегистрирован запрос профиля, requestId={}",
+                requestId
+        );
 
         return future;
     }
@@ -35,34 +41,37 @@ public class ProfileResponseConsumer {
             id = "profileResponseListener",
             topics = KafkaTopics.USER_PROFILE_RESPONSE,
             groupId = "request-service-profile-response-group",
-            containerFactory = "profileResponseKafkaListenerContainerFactory",
-            autoStartup = "true"
+            containerFactory = "profileResponseKafkaListenerContainerFactory"
     )
     public void consume(ProfileResponseEvent event) {
 
         if (event == null) {
-            log.error("REQUEST SERVICE: получено пустое сообщение Kafka");
+            log.error(
+                    "REQUEST SERVICE: получен пустой ответ профиля"
+            );
             return;
         }
 
         UUID requestId = event.getRequestId();
 
-        log.info(
-                "REQUEST SERVICE: получен ответ Kafka, requestId={}",
-                requestId
-        );
-
         if (requestId == null) {
-            log.error("REQUEST SERVICE: ответ User Service без requestId");
+            log.error(
+                    "REQUEST SERVICE: ответ профиля без requestId"
+            );
             return;
         }
+
+        log.info(
+                "REQUEST SERVICE: получен ответ профиля, requestId={}",
+                requestId
+        );
 
         CompletableFuture<ProfileResponseEvent> future =
                 pendingRequests.remove(requestId);
 
         if (future == null) {
             log.warn(
-                    "REQUEST SERVICE: нет ожидающего запроса для requestId={}",
+                    "REQUEST SERVICE: нет ожидающего запроса профиля, requestId={}",
                     requestId
             );
             return;
@@ -71,7 +80,7 @@ public class ProfileResponseConsumer {
         future.complete(event);
 
         log.info(
-                "REQUEST SERVICE: ответ передан ожидающему запросу, requestId={}",
+                "REQUEST SERVICE: ответ профиля передан ожидающему запросу, requestId={}",
                 requestId
         );
     }

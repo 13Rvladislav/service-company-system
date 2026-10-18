@@ -1,3 +1,4 @@
+
 server:
   port: 8084
 
@@ -28,14 +29,12 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
 
     consumer:
-      client-id: request-service-profile-response
-      group-id: request-service-profile-response-group
+      client-id: request-service
       auto-offset-reset: latest
       enable-auto-commit: true
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
       properties:
-        spring.json.value.default.type: ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent
         spring.json.use.type.headers: false
         spring.json.trusted.packages: ru.servicecompany.requestservice.kafka.event
 
