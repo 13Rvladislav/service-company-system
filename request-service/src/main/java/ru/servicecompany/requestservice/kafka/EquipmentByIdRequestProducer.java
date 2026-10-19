@@ -30,5 +30,6 @@ public class EquipmentByIdRequestProducer {
                 authUserId.toString(),
                 event
         );
+
     }
 }

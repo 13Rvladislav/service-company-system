@@ -13,6 +13,8 @@ public record RequestDetailsResponse(
 
         UUID equipmentId,
 
+        UserEquipmentResponse equipment,
+
         UUID masterId,
 
         String problemDescription,

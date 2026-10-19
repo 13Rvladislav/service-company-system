@@ -1,3 +1,4 @@
+
 package ru.servicecompany.requestservice.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -12,6 +13,7 @@ import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
 import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
 import ru.servicecompany.requestservice.kafka.event.EquipmentResponseEvent;
+import ru.servicecompany.requestservice.kafka.event.EquipmentByIdResponseEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -51,7 +53,7 @@ public class KafkaConsumerConfig {
     }
 
     // ---------------------------------------------------------
-    // Consumer для ответа User Service с профилем клиента
+    // Consumer ответа User Service с профилем клиента
     // ---------------------------------------------------------
 
     @Bean
@@ -95,7 +97,7 @@ public class KafkaConsumerConfig {
     }
 
     // ---------------------------------------------------------
-    // Consumer для ответа Equipment Service с оборудованием
+    // Consumer ответа Equipment Service со списком оборудования
     // ---------------------------------------------------------
 
     @Bean
@@ -131,6 +133,50 @@ public class KafkaConsumerConfig {
 
         factory.setConsumerFactory(
                 equipmentResponseConsumerFactory
+        );
+
+        factory.setConcurrency(1);
+
+        return factory;
+    }
+
+    // ---------------------------------------------------------
+    // Новый consumer ответа Equipment Service по ID
+    // ---------------------------------------------------------
+
+    @Bean
+    public ConsumerFactory<String, EquipmentByIdResponseEvent>
+    equipmentByIdResponseConsumerFactory(Environment environment) {
+
+        JacksonJsonDeserializer<EquipmentByIdResponseEvent> deserializer =
+                new JacksonJsonDeserializer<>(
+                        EquipmentByIdResponseEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        return new DefaultKafkaConsumerFactory<>(
+                createConsumerProperties(
+                        environment,
+                        "request-service-equipment-by-id-group"
+                ),
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, EquipmentByIdResponseEvent>
+    equipmentByIdResponseKafkaListenerContainerFactory(
+            ConsumerFactory<String, EquipmentByIdResponseEvent>
+                    equipmentByIdResponseConsumerFactory
+    ) {
+
+        ConcurrentKafkaListenerContainerFactory<String, EquipmentByIdResponseEvent>
+                factory = new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                equipmentByIdResponseConsumerFactory
         );
 
         factory.setConcurrency(1);

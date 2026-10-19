@@ -1,3 +1,4 @@
+
 package ru.servicecompany.requestservice.kafka;
 
 import lombok.extern.slf4j.Slf4j;
@@ -35,17 +36,23 @@ public class EquipmentByIdResponseConsumer {
     }
 
     @KafkaListener(
-            id = "equipmentByIdResponseListener",
             topics = KafkaTopics.EQUIPMENT_BY_ID_RESPONSE,
-            groupId = "request-service-equipment-by-id-response-group",
-            containerFactory = "equipmentResponseKafkaListenerContainerFactory"
+            groupId = "request-service-equipment-by-id-group",
+            containerFactory = "equipmentByIdResponseKafkaListenerContainerFactory"
     )
     public void consume(EquipmentByIdResponseEvent event) {
 
         if (event == null || event.getRequestId() == null) {
-            log.error("REQUEST SERVICE: некорректный ответ оборудования по ID");
+            log.error(
+                    "REQUEST SERVICE: некорректный ответ оборудования по ID"
+            );
             return;
         }
+
+        log.info(
+                "REQUEST SERVICE: получен ответ оборудования, requestId={}",
+                event.getRequestId()
+        );
 
         CompletableFuture<EquipmentByIdResponseEvent> future =
                 pendingRequests.remove(event.getRequestId());

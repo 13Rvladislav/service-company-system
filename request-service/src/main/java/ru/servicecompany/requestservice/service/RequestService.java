@@ -1,4 +1,3 @@
-
 package ru.servicecompany.requestservice.service;
 
 import lombok.RequiredArgsConstructor;
@@ -11,8 +10,10 @@ import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.MyRequestResponse;
 import ru.servicecompany.requestservice.dto.response.RequestDetailsResponse;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
+import ru.servicecompany.requestservice.dto.response.UserEquipmentResponse;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
+import ru.servicecompany.requestservice.kafka.EquipmentByIdRequestService;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 
 import java.util.List;
@@ -23,6 +24,8 @@ import java.util.UUID;
 public class RequestService {
 
     private final ServiceRequestRepository serviceRequestRepository;
+
+    private final EquipmentByIdRequestService equipmentByIdRequestService;
 
     @Transactional
     public RequestResponse createRequest(
@@ -62,10 +65,16 @@ public class RequestService {
                         "Заявка не найдена"
                 ));
 
+        UserEquipmentResponse equipment = getEquipment(
+                clientId,
+                request.getEquipmentId()
+        );
+
         return new RequestDetailsResponse(
                 request.getId(),
                 request.getAddressId(),
                 request.getEquipmentId(),
+                equipment,
                 request.getMasterId(),
                 request.getProblemDescription(),
                 request.getClientComment(),
@@ -74,6 +83,19 @@ public class RequestService {
                 request.getCreatedAt(),
                 request.getUpdatedAt()
         );
+    }
+
+    private UserEquipmentResponse getEquipment(
+            UUID clientId,
+            UUID equipmentId
+    ) {
+        if (equipmentId == null) {
+            return null;
+        }
+
+        return equipmentByIdRequestService
+                .getEquipmentById(clientId, equipmentId)
+                .getEquipment();
     }
 
     public List<MyRequestResponse> getMyRequests(UUID clientId) {

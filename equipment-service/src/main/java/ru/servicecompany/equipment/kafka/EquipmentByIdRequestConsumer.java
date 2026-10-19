@@ -22,7 +22,7 @@ public class EquipmentByIdRequestConsumer {
     @KafkaListener(
             topics = EquipmentKafkaTopics.EQUIPMENT_BY_ID_REQUEST,
             groupId = "equipment-service-equipment-by-id-group",
-            containerFactory = "equipmentRequestKafkaListenerContainerFactory"
+            containerFactory = "equipmentByIdRequestKafkaListenerContainerFactory"
     )
     public void consume(EquipmentByIdRequestEvent event) {
 
@@ -65,7 +65,12 @@ public class EquipmentByIdRequestConsumer {
                     .error("Не удалось получить оборудование")
                     .build();
         }
-
+        log.info(
+                "EQUIPMENT SERVICE: topic={}, responseClass={}, requestId={}",
+                EquipmentKafkaTopics.EQUIPMENT_BY_ID_RESPONSE,
+                response.getClass().getName(),
+                event.getRequestId()
+        );
         try {
             kafkaTemplate.send(
                     EquipmentKafkaTopics.EQUIPMENT_BY_ID_RESPONSE,
