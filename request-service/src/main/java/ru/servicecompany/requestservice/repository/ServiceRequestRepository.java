@@ -36,6 +36,10 @@ public interface ServiceRequestRepository
             RequestStatus status
     );
 
+    Optional<ServiceRequest> findByIdAndClientId(
+            UUID id,
+            UUID clientId
+    );
     /**
      * Блокирует заявку на время транзакции.
      * Это предотвращает одновременное изменение её статуса

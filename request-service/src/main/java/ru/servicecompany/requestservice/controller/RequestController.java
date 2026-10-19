@@ -3,6 +3,7 @@ package ru.servicecompany.requestservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,9 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.servicecompany.requestservice.config.JwtUserPrincipal;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
-import ru.servicecompany.requestservice.dto.response.ClientProfileResponse;
-import ru.servicecompany.requestservice.dto.response.CreateRequestFormResponse;
-import ru.servicecompany.requestservice.dto.response.RequestResponse;
+import ru.servicecompany.requestservice.dto.response.*;
 import ru.servicecompany.requestservice.kafka.ProfileRequestService;
 import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
 import ru.servicecompany.requestservice.service.CreateRequestFormService;
@@ -53,13 +52,29 @@ public class RequestController {
     }
 
     @GetMapping("/my")
-    public List<RequestResponse> getMyRequests(
+    public ResponseEntity<List<MyRequestResponse>> getMyRequests(
             Authentication authentication
     ) {
         JwtUserPrincipal principal =
                 (JwtUserPrincipal) authentication.getPrincipal();
 
-        return requestService.getMyRequests(principal.userId());
+        return ResponseEntity.ok(
+                requestService.getMyRequests(principal.userId())
+        );
+    }
+
+    @GetMapping("/{id}")
+    public RequestDetailsResponse getRequestDetails(
+            Authentication authentication,
+            @PathVariable UUID id
+    ) {
+        JwtUserPrincipal principal =
+                (JwtUserPrincipal) authentication.getPrincipal();
+
+        return requestService.getRequestDetails(
+                principal.userId(),
+                id
+        );
     }
 
     @PatchMapping("/{id}")
@@ -91,12 +106,14 @@ public class RequestController {
                 id
         );
     }
+
     @GetMapping("/create-form")
     public CreateRequestFormResponse getCreateForm(
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
         return createRequestFormService.getCreateForm(principal);
     }
+
     @GetMapping("/profile")
     public ClientProfileResponse getClientProfile(
             @AuthenticationPrincipal JwtUserPrincipal principal

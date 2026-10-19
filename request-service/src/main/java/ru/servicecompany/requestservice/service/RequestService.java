@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
+import ru.servicecompany.requestservice.dto.response.MyRequestResponse;
+import ru.servicecompany.requestservice.dto.response.RequestDetailsResponse;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
@@ -49,11 +51,40 @@ public class RequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<RequestResponse> getMyRequests(UUID clientId) {
+    public RequestDetailsResponse getRequestDetails(
+            UUID clientId,
+            UUID requestId
+    ) {
+        ServiceRequest request = serviceRequestRepository
+                .findByIdAndClientId(requestId, clientId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Заявка не найдена"
+                ));
+
+        return new RequestDetailsResponse(
+                request.getId(),
+                request.getAddressId(),
+                request.getEquipmentId(),
+                request.getMasterId(),
+                request.getProblemDescription(),
+                request.getClientComment(),
+                request.getStatus(),
+                request.getPreferredVisitAt(),
+                request.getCreatedAt(),
+                request.getUpdatedAt()
+        );
+    }
+
+    public List<MyRequestResponse> getMyRequests(UUID clientId) {
         return serviceRequestRepository
                 .findAllByClientIdOrderByCreatedAtDesc(clientId)
                 .stream()
-                .map(this::toResponse)
+                .map(request -> new MyRequestResponse(
+                        request.getId(),
+                        request.getCreatedAt(),
+                        request.getStatus()
+                ))
                 .toList();
     }
 
