@@ -249,4 +249,23 @@ public class AddressService {
                 .streetName(house.getStreet().getName())
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    public HouseResponse getHouseById(UUID houseId) {
+
+        House house = houseRepository.findById(houseId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Дом не найден"
+                ));
+
+        return HouseResponse.builder()
+                .id(house.getId())
+                .number(house.getNumber())
+                .streetId(house.getStreet().getId())
+                .streetName(house.getStreet().getName())
+                .cityId(house.getStreet().getCity().getId())
+                .cityName(house.getStreet().getCity().getName())
+                .build();
+    }
 }

@@ -17,4 +17,7 @@ public class HouseResponse {
 
     private String streetName;
 
+    private UUID cityId;
+
+    private String cityName;
 }

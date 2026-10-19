@@ -49,4 +49,10 @@ public final class KafkaTopics {
      */
     public static final String USER_PROFILE_UPDATE_RESPONSE =
             "user.profile.update.response";
+
+    public static final String ADDRESS_BY_ID_REQUEST =
+            "address.by-id.request";
+
+    public static final String ADDRESS_BY_ID_RESPONSE =
+            "address.by-id.response";
 }
