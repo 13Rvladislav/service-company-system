@@ -8,6 +8,7 @@ import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.AddressResponse;
+import ru.servicecompany.requestservice.dto.response.MasterResponse;
 import ru.servicecompany.requestservice.dto.response.MyRequestResponse;
 import ru.servicecompany.requestservice.dto.response.RequestDetailsResponse;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
@@ -16,6 +17,7 @@ import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
 import ru.servicecompany.requestservice.kafka.AddressByIdRequestService;
 import ru.servicecompany.requestservice.kafka.EquipmentByIdRequestService;
+import ru.servicecompany.requestservice.kafka.MasterByIdRequestService;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 
 import java.util.List;
@@ -28,6 +30,7 @@ public class RequestService {
     private final ServiceRequestRepository serviceRequestRepository;
     private final EquipmentByIdRequestService equipmentByIdRequestService;
     private final AddressByIdRequestService addressByIdRequestService;
+    private final MasterByIdRequestService masterByIdRequestService;
 
     /**
      * Создание заявки клиентом.
@@ -95,11 +98,14 @@ public class RequestService {
                         "Заявка не найдена"
                 ));
 
-        AddressResponse address = getAddress(request.getAddressId());
+        // Существующее получение адреса оставляем без изменений.
+        AddressResponse address = getAddress(
+                request.getAddressId()
+        );
 
         /*
-         * Квартира относится к заявке, а не к сохранённому адресу клиента.
-         * Поэтому берём её из ServiceRequest и добавляем в AddressResponse.
+         * Квартира берётся из карточки заявки,
+         * а не из профиля клиента.
          */
         if (address != null) {
             address = new AddressResponse(
@@ -113,16 +119,37 @@ public class RequestService {
             );
         }
 
+        // Существующее получение оборудования оставляем без изменений.
         UserEquipmentResponse equipment = getEquipment(
                 clientId,
                 request.getEquipmentId()
         );
 
+        /*
+         * Получаем профиль только назначенного мастера.
+         * Если masterId отсутствует, мастер не запрашивается.
+         */
+        MasterResponse master = null;
+
+        if (request.getMasterId() != null) {
+            master = masterByIdRequestService.getMasterById(
+                    request.getMasterId()
+            );
+        }
+
         return new RequestDetailsResponse(
                 request.getId(),
+
+                request.getAddressId(),
                 address,
+                request.getApartment(),
+
+                request.getEquipmentId(),
                 equipment,
+
                 request.getMasterId(),
+                master,
+
                 request.getProblemDescription(),
                 request.getClientComment(),
                 request.getStatus(),
@@ -197,6 +224,7 @@ public class RequestService {
                     "Описание проблемы обязательно"
             );
         }
+
 
         request.setProblemDescription(
                 update.problemDescription().trim()
