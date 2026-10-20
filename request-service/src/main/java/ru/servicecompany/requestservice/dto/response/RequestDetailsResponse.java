@@ -7,10 +7,7 @@ import java.util.UUID;
 
 public record RequestDetailsResponse(
         UUID id,
-        UUID addressId,
         AddressResponse address,
-        String apartment,
-        UUID equipmentId,
         UserEquipmentResponse equipment,
         UUID masterId,
         String problemDescription,
@@ -19,4 +16,5 @@ public record RequestDetailsResponse(
         LocalDateTime preferredVisitAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
-) {}
+) {
+}

@@ -26,9 +26,7 @@ import java.util.UUID;
 public class RequestService {
 
     private final ServiceRequestRepository serviceRequestRepository;
-
     private final EquipmentByIdRequestService equipmentByIdRequestService;
-
     private final AddressByIdRequestService addressByIdRequestService;
 
     /**
@@ -58,8 +56,7 @@ public class RequestService {
         serviceRequest.setClientId(clientId);
         serviceRequest.setAddressId(request.addressId());
 
-        // Квартира приходит от frontend из create-form.address.apartment.
-        // Не перезапрашиваем её из address-service.
+        // Квартира из формы создания заявки сохраняется в самой заявке.
         serviceRequest.setApartment(
                 normalizeApartment(request.apartment())
         );
@@ -100,6 +97,22 @@ public class RequestService {
 
         AddressResponse address = getAddress(request.getAddressId());
 
+        /*
+         * Квартира относится к заявке, а не к сохранённому адресу клиента.
+         * Поэтому берём её из ServiceRequest и добавляем в AddressResponse.
+         */
+        if (address != null) {
+            address = new AddressResponse(
+                    address.cityId(),
+                    address.cityName(),
+                    address.streetId(),
+                    address.streetName(),
+                    address.houseId(),
+                    address.houseNumber(),
+                    request.getApartment()
+            );
+        }
+
         UserEquipmentResponse equipment = getEquipment(
                 clientId,
                 request.getEquipmentId()
@@ -107,10 +120,7 @@ public class RequestService {
 
         return new RequestDetailsResponse(
                 request.getId(),
-                request.getAddressId(),
                 address,
-                request.getApartment(),
-                request.getEquipmentId(),
                 equipment,
                 request.getMasterId(),
                 request.getProblemDescription(),
@@ -123,19 +133,18 @@ public class RequestService {
     }
 
     /**
-     * Получение адреса по ID.
+     * Получение адреса по ID через существующий Kafka-механизм.
      */
     private AddressResponse getAddress(UUID addressId) {
         if (addressId == null) {
             return null;
         }
 
-        return addressByIdRequestService
-                .getAddressById(addressId);
+        return addressByIdRequestService.getAddressById(addressId);
     }
 
     /**
-     * Получение оборудования по ID.
+     * Получение оборудования по ID через существующий Kafka-механизм.
      */
     private UserEquipmentResponse getEquipment(
             UUID clientId,
