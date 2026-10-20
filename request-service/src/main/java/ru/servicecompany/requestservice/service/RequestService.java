@@ -98,14 +98,16 @@ public class RequestService {
                         "Заявка не найдена"
                 ));
 
-        // Существующее получение адреса оставляем без изменений.
+        /*
+         * Получаем адрес через существующий Kafka-механизм.
+         */
         AddressResponse address = getAddress(
                 request.getAddressId()
         );
 
         /*
-         * Квартира берётся из карточки заявки,
-         * а не из профиля клиента.
+         * Номер квартиры берём именно из карточки заявки.
+         * Не используем квартиру из профиля клиента.
          */
         if (address != null) {
             address = new AddressResponse(
@@ -119,15 +121,22 @@ public class RequestService {
             );
         }
 
-        // Существующее получение оборудования оставляем без изменений.
+        /*
+         * Получаем оборудование через существующий Kafka-механизм.
+         */
         UserEquipmentResponse equipment = getEquipment(
                 clientId,
                 request.getEquipmentId()
         );
 
         /*
-         * Получаем профиль только назначенного мастера.
-         * Если masterId отсутствует, мастер не запрашивается.
+         * Получаем данные назначенного мастера.
+         *
+         * masterId — ID мастера из ServiceRequest.
+         * clientId — ID клиента, который просматривает заявку.
+         *
+         * Для получения мастера используем masterId заявки,
+         * а не clientId текущего пользователя.
          */
         MasterResponse master = null;
 
@@ -137,6 +146,9 @@ public class RequestService {
             );
         }
 
+        /*
+         * Возвращаем полную карточку заявки.
+         */
         return new RequestDetailsResponse(
                 request.getId(),
 
@@ -224,7 +236,6 @@ public class RequestService {
                     "Описание проблемы обязательно"
             );
         }
-
 
         request.setProblemDescription(
                 update.problemDescription().trim()

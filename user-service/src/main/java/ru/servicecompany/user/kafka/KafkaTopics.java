@@ -55,4 +55,10 @@ public final class KafkaTopics {
 
     public static final String ADDRESS_BY_ID_RESPONSE =
             "address.by-id.response";
+
+    public static final String MASTER_BY_ID_REQUEST =
+            "master.by-id.request";
+
+    public static final String MASTER_BY_ID_RESPONSE =
+            "master.by-id.response";
 }
