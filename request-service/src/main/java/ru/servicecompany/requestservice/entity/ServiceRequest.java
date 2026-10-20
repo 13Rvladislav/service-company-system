@@ -40,6 +40,8 @@ public class ServiceRequest {
     @Column(name = "client_id", nullable = false)
     private UUID clientId;
 
+    @Column(length = 50)
+    private String apartment;
     /**
      * Идентификатор назначенного мастера.
      * null, пока мастер не назначен.

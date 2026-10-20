@@ -11,6 +11,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
+import ru.servicecompany.requestservice.kafka.event.AddressByIdResponseEvent;
 import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
 import ru.servicecompany.requestservice.kafka.event.EquipmentResponseEvent;
 import ru.servicecompany.requestservice.kafka.event.EquipmentByIdResponseEvent;
@@ -200,6 +201,51 @@ public class KafkaConsumerConfig {
 
         factory.setConsumerFactory(
                 profileResponseConsumerFactory
+        );
+
+        factory.setConcurrency(1);
+
+        return factory;
+    }
+    @Bean
+    public ConsumerFactory<String, AddressByIdResponseEvent>
+    addressByIdResponseConsumerFactory(Environment environment) {
+
+        JacksonJsonDeserializer<AddressByIdResponseEvent> deserializer =
+                new JacksonJsonDeserializer<>(
+                        AddressByIdResponseEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        return new DefaultKafkaConsumerFactory<>(
+                createConsumerProperties(
+                        environment,
+                        "request-service-address-by-id-group"
+                ),
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            AddressByIdResponseEvent
+            >
+    addressByIdResponseKafkaListenerContainerFactory(
+            ConsumerFactory<String, AddressByIdResponseEvent>
+                    addressByIdResponseConsumerFactory
+    ) {
+
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                AddressByIdResponseEvent
+                > factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                addressByIdResponseConsumerFactory
         );
 
         factory.setConcurrency(1);

@@ -9,10 +9,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
-import ru.servicecompany.user.kafka.event.ProfileDeleteRequestEvent;
-import ru.servicecompany.user.kafka.event.ProfileRequestEvent;
-import ru.servicecompany.user.kafka.event.ProfileUpdateRequestEvent;
-import ru.servicecompany.user.kafka.event.UserProfileCreateEvent;
+import ru.servicecompany.user.kafka.event.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -320,5 +317,69 @@ public class KafkaConsumerConfig {
 
         return factory;
     }
+    @Bean
+    public ConsumerFactory<String, AddressByIdRequestEvent>
+    addressByIdRequestConsumerFactory() {
 
+        Map<String, Object> props = new HashMap<>();
+
+        props.put(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                BOOTSTRAP_SERVERS
+        );
+
+        props.put(
+                ConsumerConfig.GROUP_ID_CONFIG,
+                "user-service-address-by-id-group"
+        );
+
+        props.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                "earliest"
+        );
+
+        props.put(
+                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+                true
+        );
+
+        JacksonJsonDeserializer<AddressByIdRequestEvent> deserializer =
+                new JacksonJsonDeserializer<>(
+                        AddressByIdRequestEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        deserializer.trustedPackages(
+                "ru.servicecompany.user.kafka.event"
+        );
+
+        return new DefaultKafkaConsumerFactory<>(
+                props,
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean(name = "addressByIdRequestKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            AddressByIdRequestEvent
+            >
+    addressByIdRequestKafkaListenerContainerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                AddressByIdRequestEvent
+                > factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                addressByIdRequestConsumerFactory()
+        );
+
+        factory.setConcurrency(1);
+
+        return factory;
+    }
 }

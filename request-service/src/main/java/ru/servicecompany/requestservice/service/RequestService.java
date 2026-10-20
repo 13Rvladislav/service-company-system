@@ -7,12 +7,14 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
+import ru.servicecompany.requestservice.dto.response.AddressResponse;
 import ru.servicecompany.requestservice.dto.response.MyRequestResponse;
 import ru.servicecompany.requestservice.dto.response.RequestDetailsResponse;
 import ru.servicecompany.requestservice.dto.response.RequestResponse;
 import ru.servicecompany.requestservice.dto.response.UserEquipmentResponse;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
+import ru.servicecompany.requestservice.kafka.AddressByIdRequestService;
 import ru.servicecompany.requestservice.kafka.EquipmentByIdRequestService;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 
@@ -27,6 +29,11 @@ public class RequestService {
 
     private final EquipmentByIdRequestService equipmentByIdRequestService;
 
+    private final AddressByIdRequestService addressByIdRequestService;
+
+    /**
+     * Создание заявки клиентом.
+     */
     @Transactional
     public RequestResponse createRequest(
             UUID clientId,
@@ -36,6 +43,13 @@ public class RequestService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Необходимо выбрать оборудование"
+            );
+        }
+
+        if (request.addressId() == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Необходимо выбрать адрес"
             );
         }
 
@@ -50,9 +64,17 @@ public class RequestService {
         serviceRequest.setMasterId(null);
         serviceRequest.setStatus(RequestStatus.NEW);
 
-        return toResponse(serviceRequestRepository.save(serviceRequest));
+        return toResponse(
+                serviceRequestRepository.save(serviceRequest)
+        );
     }
 
+    /**
+     * Получение подробной карточки заявки клиентом.
+     *
+     * Адрес и оборудование запрашиваются отдельно
+     * через Kafka по ID, сохранённым в заявке.
+     */
     @Transactional(readOnly = true)
     public RequestDetailsResponse getRequestDetails(
             UUID clientId,
@@ -65,6 +87,12 @@ public class RequestService {
                         "Заявка не найдена"
                 ));
 
+        // Получаем адрес заявки.
+        AddressResponse address = getAddress(
+                request.getAddressId()
+        );
+
+        // Получаем оборудование заявки.
         UserEquipmentResponse equipment = getEquipment(
                 clientId,
                 request.getEquipmentId()
@@ -72,19 +100,43 @@ public class RequestService {
 
         return new RequestDetailsResponse(
                 request.getId(),
+
                 request.getAddressId(),
+                address,
+
                 request.getEquipmentId(),
                 equipment,
+
                 request.getMasterId(),
+
                 request.getProblemDescription(),
                 request.getClientComment(),
+
                 request.getStatus(),
+
                 request.getPreferredVisitAt(),
+
                 request.getCreatedAt(),
                 request.getUpdatedAt()
         );
     }
 
+    /**
+     * Получение адреса по ID дома.
+     */
+    private AddressResponse getAddress(UUID addressId) {
+
+        if (addressId == null) {
+            return null;
+        }
+
+        return addressByIdRequestService
+                .getAddressById(addressId);
+    }
+
+    /**
+     * Получение оборудования по ID.
+     */
     private UserEquipmentResponse getEquipment(
             UUID clientId,
             UUID equipmentId
@@ -98,7 +150,12 @@ public class RequestService {
                 .getEquipment();
     }
 
+    /**
+     * Получение списка заявок клиента.
+     */
+    @Transactional(readOnly = true)
     public List<MyRequestResponse> getMyRequests(UUID clientId) {
+
         return serviceRequestRepository
                 .findAllByClientIdOrderByCreatedAtDesc(clientId)
                 .stream()
@@ -110,6 +167,11 @@ public class RequestService {
                 .toList();
     }
 
+    /**
+     * Редактирование заявки клиентом.
+     *
+     * Разрешено до принятия заявки мастером.
+     */
     @Transactional
     public RequestResponse updateRequest(
             UUID clientId,
@@ -123,6 +185,7 @@ public class RequestService {
 
         if (update.problemDescription() == null
                 || update.problemDescription().isBlank()) {
+
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Описание проблемы обязательно"
@@ -133,14 +196,26 @@ public class RequestService {
                 update.problemDescription().trim()
         );
 
-        // Форма редактирования передаёт все три поля.
-        // null позволяет очистить необязательное поле.
-        request.setClientComment(normalizeComment(update.clientComment()));
-        request.setPreferredVisitAt(update.preferredVisitAt());
+        // Необязательный комментарий.
+        request.setClientComment(
+                normalizeComment(update.clientComment())
+        );
 
-        return toResponse(serviceRequestRepository.save(request));
+        // Предпочтительное время визита.
+        request.setPreferredVisitAt(
+                update.preferredVisitAt()
+        );
+
+        return toResponse(
+                serviceRequestRepository.save(request)
+        );
     }
 
+    /**
+     * Отмена заявки клиентом.
+     *
+     * Разрешено до принятия заявки мастером.
+     */
     @Transactional
     public RequestResponse cancelRequest(
             UUID clientId,
@@ -153,22 +228,33 @@ public class RequestService {
 
         request.setStatus(RequestStatus.CANCELLED);
 
-        return toResponse(serviceRequestRepository.save(request));
+        return toResponse(
+                serviceRequestRepository.save(request)
+        );
     }
 
+    /**
+     * Получение заявки с блокировкой для изменения.
+     */
     private ServiceRequest getRequestForUpdate(UUID requestId) {
-        return serviceRequestRepository.findByIdForUpdate(requestId)
+
+        return serviceRequestRepository
+                .findByIdForUpdate(requestId)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
                         "Заявка не найдена"
                 ));
     }
 
+    /**
+     * Проверка владельца заявки.
+     */
     private void checkOwner(
             ServiceRequest request,
             UUID clientId
     ) {
         if (!request.getClientId().equals(clientId)) {
+
             // Не раскрываем существование чужой заявки.
             throw new ApiException(
                     HttpStatus.NOT_FOUND,
@@ -177,7 +263,11 @@ public class RequestService {
         }
     }
 
+    /**
+     * Проверка возможности редактирования или отмены.
+     */
     private void checkCanBeChanged(ServiceRequest request) {
+
         boolean editable = switch (request.getStatus()) {
             case NEW, WAITING_FOR_ASSIGNMENT, ASSIGNED -> true;
             default -> false;
@@ -192,7 +282,11 @@ public class RequestService {
         }
     }
 
+    /**
+     * Нормализация комментария.
+     */
     private String normalizeComment(String comment) {
+
         if (comment == null || comment.isBlank()) {
             return null;
         }
@@ -200,7 +294,11 @@ public class RequestService {
         return comment.trim();
     }
 
+    /**
+     * Преобразование заявки в обычный ответ.
+     */
     private RequestResponse toResponse(ServiceRequest request) {
+
         return new RequestResponse(
                 request.getId(),
                 request.getClientId(),
