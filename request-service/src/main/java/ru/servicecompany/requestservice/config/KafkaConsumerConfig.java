@@ -11,10 +11,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
-import ru.servicecompany.requestservice.kafka.event.AddressByIdResponseEvent;
-import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
-import ru.servicecompany.requestservice.kafka.event.EquipmentResponseEvent;
-import ru.servicecompany.requestservice.kafka.event.EquipmentByIdResponseEvent;
+import ru.servicecompany.requestservice.kafka.event.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -246,6 +243,50 @@ public class KafkaConsumerConfig {
 
         factory.setConsumerFactory(
                 addressByIdResponseConsumerFactory
+        );
+
+        factory.setConcurrency(1);
+
+        return factory;
+    }
+
+    // ---------------------------------------------------------
+// Consumer ответа User Service с данными мастера
+// ---------------------------------------------------------
+
+    @Bean
+    public ConsumerFactory<String, MasterByIdResponseEvent>
+    masterByIdResponseConsumerFactory(Environment environment) {
+
+        JacksonJsonDeserializer<MasterByIdResponseEvent> deserializer =
+                new JacksonJsonDeserializer<>(
+                        MasterByIdResponseEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        return new DefaultKafkaConsumerFactory<>(
+                createConsumerProperties(
+                        environment,
+                        "request-service-master-by-id-group"
+                ),
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, MasterByIdResponseEvent>
+    masterByIdResponseKafkaListenerContainerFactory(
+            ConsumerFactory<String, MasterByIdResponseEvent>
+                    masterByIdResponseConsumerFactory
+    ) {
+
+        ConcurrentKafkaListenerContainerFactory<String, MasterByIdResponseEvent>
+                factory = new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                masterByIdResponseConsumerFactory
         );
 
         factory.setConcurrency(1);

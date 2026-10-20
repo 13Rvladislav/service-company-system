@@ -37,7 +37,7 @@ public class MasterByIdResponseConsumer {
     @KafkaListener(
             topics = KafkaTopics.MASTER_BY_ID_RESPONSE,
             groupId = "request-service-master-by-id-group",
-            containerFactory = "profileResponseKafkaListenerContainerFactory"
+            containerFactory = "masterByIdResponseKafkaListenerContainerFactory"
     )
     public void consume(MasterByIdResponseEvent event) {
 
