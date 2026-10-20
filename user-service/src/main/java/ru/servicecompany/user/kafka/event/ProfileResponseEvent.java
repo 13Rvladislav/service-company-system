@@ -33,6 +33,7 @@ public class ProfileResponseEvent {
     private UUID cityId;
     private UUID streetId;
     private UUID houseId;
+    private UUID zoneId;
 
     private String cityName;
     private String streetName;

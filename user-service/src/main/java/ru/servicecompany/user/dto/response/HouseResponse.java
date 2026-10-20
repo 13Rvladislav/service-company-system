@@ -20,4 +20,6 @@ public class HouseResponse {
     private UUID cityId;
 
     private String cityName;
+
+    private UUID zoneId;
 }

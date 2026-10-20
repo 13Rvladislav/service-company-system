@@ -16,7 +16,9 @@ public record AddressResponse(
         UUID houseId,
         String houseNumber,
 
-        String apartment
+        String apartment,
+
+        UUID zoneId
 
 ) {
 }

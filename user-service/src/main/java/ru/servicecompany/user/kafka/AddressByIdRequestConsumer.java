@@ -37,7 +37,7 @@ public class AddressByIdRequestConsumer {
                     event.getAddressId()
             );
 
-            responseProducer.sendResponse(
+            AddressByIdResponseEvent response =
                     AddressByIdResponseEvent.builder()
                             .requestId(event.getRequestId())
                             .addressId(house.getId())
@@ -47,8 +47,10 @@ public class AddressByIdRequestConsumer {
                             .streetName(house.getStreetName())
                             .cityId(house.getCityId())
                             .cityName(house.getCityName())
-                            .build()
-            );
+                            .zoneId(house.getZoneId())
+                            .build();
+
+            responseProducer.sendResponse(response);
 
         } catch (Exception e) {
 
@@ -59,13 +61,14 @@ public class AddressByIdRequestConsumer {
                     e
             );
 
-            responseProducer.sendResponse(
+            AddressByIdResponseEvent response =
                     AddressByIdResponseEvent.builder()
                             .requestId(event.getRequestId())
                             .addressId(event.getAddressId())
                             .error("Адрес не найден")
-                            .build()
-            );
+                            .build();
+
+            responseProducer.sendResponse(response);
         }
     }
 }

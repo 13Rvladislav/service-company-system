@@ -266,6 +266,7 @@ public class AddressService {
                 .streetName(house.getStreet().getName())
                 .cityId(house.getStreet().getCity().getId())
                 .cityName(house.getStreet().getCity().getName())
+                .zoneId(house.getStreet().getZone().getId())
                 .build();
     }
 }

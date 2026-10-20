@@ -28,5 +28,7 @@ public class AddressByIdResponseEvent {
     private UUID houseId;
     private String houseNumber;
 
+    private UUID zoneId;
+
     private String error;
 }

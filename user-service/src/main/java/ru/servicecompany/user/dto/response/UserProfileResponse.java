@@ -26,7 +26,7 @@ public class UserProfileResponse {
     private UUID cityId;
     private UUID streetId;
     private UUID houseId;
-
+    private UUID zoneId;
     // Адрес: названия
     private String cityName;
     private String streetName;

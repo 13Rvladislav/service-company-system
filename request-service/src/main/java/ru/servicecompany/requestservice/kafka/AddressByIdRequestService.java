@@ -48,6 +48,7 @@ public class AddressByIdRequestService {
                     .streetName(response.getStreetName())
                     .cityId(response.getCityId())
                     .cityName(response.getCityName())
+                    .zoneId(response.getZoneId())
                     .build();
 
         } catch (TimeoutException e) {

@@ -117,7 +117,8 @@ public class RequestService {
                     address.streetName(),
                     address.houseId(),
                     address.houseNumber(),
-                    request.getApartment()
+                    request.getApartment(),
+                    address.zoneId()
             );
         }
 

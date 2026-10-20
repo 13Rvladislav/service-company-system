@@ -21,7 +21,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
 import ru.servicecompany.user.repository.MasterZoneRepository;
+
 @Service
 @RequiredArgsConstructor
 public class UserProfileService {
@@ -34,6 +36,7 @@ public class UserProfileService {
     private final ZoneRepository zoneRepository;
     private final MasterSpecializationRepository specializationRepository;
     private final MasterZoneRepository masterZoneRepository;
+
     /**
      * Создание профиля клиента.
      */
@@ -666,7 +669,6 @@ public class UserProfileService {
     }
 
 
-
     @Transactional
     public void deleteProfile(UUID authUserId, String role) {
 
@@ -737,6 +739,7 @@ public class UserProfileService {
         UUID cityId = null;
         UUID streetId = null;
         UUID houseId = null;
+        UUID zoneId = null;
 
         String cityName = null;
         String streetName = null;
@@ -756,6 +759,11 @@ public class UserProfileService {
 
                 streetId = street.getId();
                 streetName = street.getName();
+
+                // Зона обслуживания улицы
+                if (street.getZone() != null) {
+                    zoneId = street.getZone().getId();
+                }
 
                 if (street.getCity() != null) {
 
@@ -785,6 +793,7 @@ public class UserProfileService {
                 .cityId(cityId)
                 .streetId(streetId)
                 .houseId(houseId)
+                .zoneId(zoneId)
 
                 // Адрес: названия
                 .cityName(cityName)
@@ -809,6 +818,7 @@ public class UserProfileService {
                         .build())
                 .toList();
     }
+
     /**
      * Преобразует специализации мастера в DTO для ответа API.
      */
@@ -831,3 +841,4 @@ public class UserProfileService {
     }
 
 }
+

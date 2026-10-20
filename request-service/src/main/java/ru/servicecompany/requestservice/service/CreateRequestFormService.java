@@ -7,6 +7,7 @@ import ru.servicecompany.requestservice.dto.response.AddressResponse;
 import ru.servicecompany.requestservice.dto.response.ClientProfileResponse;
 import ru.servicecompany.requestservice.dto.response.CreateRequestFormResponse;
 import ru.servicecompany.requestservice.dto.response.UserEquipmentResponse;
+import ru.servicecompany.requestservice.kafka.AddressByIdRequestService;
 import ru.servicecompany.requestservice.kafka.EquipmentRequestService;
 import ru.servicecompany.requestservice.kafka.ProfileRequestService;
 import ru.servicecompany.requestservice.kafka.event.EquipmentResponseEvent;
@@ -21,6 +22,7 @@ public class CreateRequestFormService {
 
     private final ProfileRequestService profileRequestService;
     private final EquipmentRequestService equipmentRequestService;
+    private final AddressByIdRequestService addressByIdRequestService;
 
     public CreateRequestFormResponse getCreateForm(
             JwtUserPrincipal principal
@@ -74,6 +76,7 @@ public class CreateRequestFormService {
                         .houseId(profile.getHouseId())
                         .houseNumber(profile.getHouseNumber())
                         .apartment(profile.getApartment())
+                        .zoneId(profile.getZoneId())
                         .build();
 
         List<UserEquipmentResponse> equipmentList =

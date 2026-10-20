@@ -48,7 +48,7 @@ public class ProfileResponseProducer {
                 .cityId(profile.getCityId())
                 .streetId(profile.getStreetId())
                 .houseId(profile.getHouseId())
-
+                .zoneId(profile.getZoneId())
                 // Адрес: названия
                 .cityName(profile.getCityName())
                 .streetName(profile.getStreetName())
