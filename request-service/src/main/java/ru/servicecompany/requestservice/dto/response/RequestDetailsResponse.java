@@ -8,6 +8,7 @@ import java.util.UUID;
 public record RequestDetailsResponse(
         UUID id,
         UUID addressId,
+        AddressResponse address,
         String apartment,
         UUID equipmentId,
         UserEquipmentResponse equipment,

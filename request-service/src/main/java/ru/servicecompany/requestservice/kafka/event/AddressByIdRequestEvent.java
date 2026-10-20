@@ -18,4 +18,6 @@ public class AddressByIdRequestEvent {
     private UUID requestId;
 
     private UUID addressId;
+
+    private UUID clientId;
 }

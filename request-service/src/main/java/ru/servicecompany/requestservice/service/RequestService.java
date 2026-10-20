@@ -53,14 +53,24 @@ public class RequestService {
             );
         }
 
+        // Получаем адрес из address-service по ID.
+        AddressResponse address = getAddress(request.addressId());
+
         ServiceRequest serviceRequest = new ServiceRequest();
 
         serviceRequest.setClientId(clientId);
         serviceRequest.setAddressId(request.addressId());
+
+        // Сохраняем квартиру из backend.
+        serviceRequest.setApartment(
+                address != null ? address.apartment() : null
+        );
+
         serviceRequest.setEquipmentId(request.equipmentId());
         serviceRequest.setProblemDescription(request.problemDescription());
         serviceRequest.setClientComment(request.clientComment());
         serviceRequest.setPreferredVisitAt(request.preferredVisitAt());
+
         serviceRequest.setMasterId(null);
         serviceRequest.setStatus(RequestStatus.NEW);
 
@@ -71,9 +81,6 @@ public class RequestService {
 
     /**
      * Получение подробной карточки заявки клиентом.
-     *
-     * Адрес и оборудование запрашиваются отдельно
-     * через Kafka по ID, сохранённым в заявке.
      */
     @Transactional(readOnly = true)
     public RequestDetailsResponse getRequestDetails(
@@ -87,12 +94,8 @@ public class RequestService {
                         "Заявка не найдена"
                 ));
 
-        // Получаем адрес заявки.
-        AddressResponse address = getAddress(
-                request.getAddressId()
-        );
+        AddressResponse address = getAddress(request.getAddressId());
 
-        // Получаем оборудование заявки.
         UserEquipmentResponse equipment = getEquipment(
                 clientId,
                 request.getEquipmentId()
@@ -100,29 +103,24 @@ public class RequestService {
 
         return new RequestDetailsResponse(
                 request.getId(),
-
                 request.getAddressId(),
-                address,
+
+                // Здесь нужен String, а не AddressResponse.
+                address != null ? address.apartment() : null,
 
                 request.getEquipmentId(),
                 equipment,
-
                 request.getMasterId(),
-
                 request.getProblemDescription(),
                 request.getClientComment(),
-
                 request.getStatus(),
-
                 request.getPreferredVisitAt(),
-
                 request.getCreatedAt(),
                 request.getUpdatedAt()
         );
     }
-
     /**
-     * Получение адреса по ID дома.
+     * Получение адреса по ID.
      */
     private AddressResponse getAddress(UUID addressId) {
 
@@ -169,7 +167,6 @@ public class RequestService {
 
     /**
      * Редактирование заявки клиентом.
-     *
      * Разрешено до принятия заявки мастером.
      */
     @Transactional
@@ -192,6 +189,7 @@ public class RequestService {
             );
         }
 
+
         request.setProblemDescription(
                 update.problemDescription().trim()
         );
@@ -213,7 +211,6 @@ public class RequestService {
 
     /**
      * Отмена заявки клиентом.
-     *
      * Разрешено до принятия заявки мастером.
      */
     @Transactional
