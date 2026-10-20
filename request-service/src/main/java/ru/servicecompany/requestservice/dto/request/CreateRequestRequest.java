@@ -1,29 +1,27 @@
-
 package ru.servicecompany.requestservice.dto.request;
 
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/**
- * Данные, которые клиент передаёт при создании заявки.
- */
 public record CreateRequestRequest(
 
-        @NotNull(message = "Необходимо указать адрес обслуживания")
+        @NotNull(message = "Необходимо выбрать адрес")
         UUID addressId,
 
         @NotNull(message = "Необходимо выбрать оборудование")
         UUID equipmentId,
 
-        @NotBlank(message = "Опишите проблему")
+        @Size(max = 50, message = "Номер квартиры не должен превышать 50 символов")
+        String apartment,
+
+        @NotNull(message = "Необходимо указать описание проблемы")
         @Size(
-                max = 5000,
-                message = "Описание проблемы не должно превышать 5000 символов"
+                min = 5,
+                max = 2000,
+                message = "Описание проблемы должно содержать от 5 до 2000 символов"
         )
         String problemDescription,
 
@@ -33,7 +31,6 @@ public record CreateRequestRequest(
         )
         String clientComment,
 
-        @Future(message = "Желаемое время визита должно быть в будущем")
         LocalDateTime preferredVisitAt
 
 ) {

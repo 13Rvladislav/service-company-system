@@ -53,23 +53,27 @@ public class RequestService {
             );
         }
 
-        // Получаем адрес из address-service по ID.
-        AddressResponse address = getAddress(request.addressId());
-
         ServiceRequest serviceRequest = new ServiceRequest();
 
         serviceRequest.setClientId(clientId);
         serviceRequest.setAddressId(request.addressId());
 
-        // Сохраняем квартиру из backend.
+        // Квартира приходит от frontend из create-form.address.apartment.
+        // Не перезапрашиваем её из address-service.
         serviceRequest.setApartment(
-                address != null ? address.apartment() : null
+                normalizeApartment(request.apartment())
         );
 
         serviceRequest.setEquipmentId(request.equipmentId());
-        serviceRequest.setProblemDescription(request.problemDescription());
-        serviceRequest.setClientComment(request.clientComment());
-        serviceRequest.setPreferredVisitAt(request.preferredVisitAt());
+        serviceRequest.setProblemDescription(
+                request.problemDescription().trim()
+        );
+        serviceRequest.setClientComment(
+                normalizeComment(request.clientComment())
+        );
+        serviceRequest.setPreferredVisitAt(
+                request.preferredVisitAt()
+        );
 
         serviceRequest.setMasterId(null);
         serviceRequest.setStatus(RequestStatus.NEW);
@@ -104,10 +108,8 @@ public class RequestService {
         return new RequestDetailsResponse(
                 request.getId(),
                 request.getAddressId(),
-
-                // Здесь нужен String, а не AddressResponse.
-                address != null ? address.apartment() : null,
-
+                address,
+                request.getApartment(),
                 request.getEquipmentId(),
                 equipment,
                 request.getMasterId(),
@@ -119,11 +121,11 @@ public class RequestService {
                 request.getUpdatedAt()
         );
     }
+
     /**
      * Получение адреса по ID.
      */
     private AddressResponse getAddress(UUID addressId) {
-
         if (addressId == null) {
             return null;
         }
@@ -153,7 +155,6 @@ public class RequestService {
      */
     @Transactional(readOnly = true)
     public List<MyRequestResponse> getMyRequests(UUID clientId) {
-
         return serviceRequestRepository
                 .findAllByClientIdOrderByCreatedAtDesc(clientId)
                 .stream()
@@ -182,24 +183,20 @@ public class RequestService {
 
         if (update.problemDescription() == null
                 || update.problemDescription().isBlank()) {
-
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Описание проблемы обязательно"
             );
         }
 
-
         request.setProblemDescription(
                 update.problemDescription().trim()
         );
 
-        // Необязательный комментарий.
         request.setClientComment(
                 normalizeComment(update.clientComment())
         );
 
-        // Предпочтительное время визита.
         request.setPreferredVisitAt(
                 update.preferredVisitAt()
         );
@@ -234,7 +231,6 @@ public class RequestService {
      * Получение заявки с блокировкой для изменения.
      */
     private ServiceRequest getRequestForUpdate(UUID requestId) {
-
         return serviceRequestRepository
                 .findByIdForUpdate(requestId)
                 .orElseThrow(() -> new ApiException(
@@ -251,8 +247,6 @@ public class RequestService {
             UUID clientId
     ) {
         if (!request.getClientId().equals(clientId)) {
-
-            // Не раскрываем существование чужой заявки.
             throw new ApiException(
                     HttpStatus.NOT_FOUND,
                     "Заявка не найдена"
@@ -264,7 +258,6 @@ public class RequestService {
      * Проверка возможности редактирования или отмены.
      */
     private void checkCanBeChanged(ServiceRequest request) {
-
         boolean editable = switch (request.getStatus()) {
             case NEW, WAITING_FOR_ASSIGNMENT, ASSIGNED -> true;
             default -> false;
@@ -280,10 +273,20 @@ public class RequestService {
     }
 
     /**
+     * Нормализация номера квартиры.
+     */
+    private String normalizeApartment(String apartment) {
+        if (apartment == null || apartment.isBlank()) {
+            return null;
+        }
+
+        return apartment.trim();
+    }
+
+    /**
      * Нормализация комментария.
      */
     private String normalizeComment(String comment) {
-
         if (comment == null || comment.isBlank()) {
             return null;
         }
@@ -295,7 +298,6 @@ public class RequestService {
      * Преобразование заявки в обычный ответ.
      */
     private RequestResponse toResponse(ServiceRequest request) {
-
         return new RequestResponse(
                 request.getId(),
                 request.getClientId(),
