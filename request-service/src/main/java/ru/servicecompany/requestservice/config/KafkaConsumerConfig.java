@@ -293,4 +293,51 @@ public class KafkaConsumerConfig {
 
         return factory;
     }
+
+    @Bean
+    public ConsumerFactory<String, MasterAssignmentCandidatesResponseEvent>
+    masterAssignmentCandidatesResponseConsumerFactory(
+            Environment environment
+    ) {
+        JacksonJsonDeserializer<MasterAssignmentCandidatesResponseEvent>
+                deserializer =
+                new JacksonJsonDeserializer<>(
+                        MasterAssignmentCandidatesResponseEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        return new DefaultKafkaConsumerFactory<>(
+                createConsumerProperties(
+                        environment,
+                        "request-service-master-assignment-candidates-group"
+                ),
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            MasterAssignmentCandidatesResponseEvent
+            >
+    masterAssignmentCandidatesResponseKafkaListenerContainerFactory(
+            ConsumerFactory<String, MasterAssignmentCandidatesResponseEvent>
+                    masterAssignmentCandidatesResponseConsumerFactory
+    ) {
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                MasterAssignmentCandidatesResponseEvent
+                > factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                masterAssignmentCandidatesResponseConsumerFactory
+        );
+
+        factory.setConcurrency(1);
+
+        return factory;
+    }
 }

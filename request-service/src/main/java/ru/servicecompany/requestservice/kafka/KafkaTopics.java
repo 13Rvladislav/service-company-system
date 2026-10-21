@@ -28,4 +28,10 @@ public final class KafkaTopics {
 
     public static final String MASTER_BY_ID_RESPONSE =
             "master.by-id.response";
+
+    public static final String MASTER_ASSIGNMENT_CANDIDATES_REQUEST =
+            "master.assignment-candidates.request";
+
+    public static final String MASTER_ASSIGNMENT_CANDIDATES_RESPONSE =
+            "master.assignment-candidates.response";
 }

@@ -17,6 +17,7 @@ import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
 import ru.servicecompany.requestservice.kafka.AddressByIdRequestService;
 import ru.servicecompany.requestservice.kafka.EquipmentByIdRequestService;
+import ru.servicecompany.requestservice.kafka.MasterAssignmentCandidatesRequestService;
 import ru.servicecompany.requestservice.kafka.MasterByIdRequestService;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 
@@ -32,9 +33,10 @@ public class RequestService {
     private final EquipmentByIdRequestService equipmentByIdRequestService;
     private final AddressByIdRequestService addressByIdRequestService;
     private final MasterByIdRequestService masterByIdRequestService;
-
+    private final MasterAssignmentCandidatesRequestService
+            masterAssignmentCandidatesRequestService;
     /**
-     * Создание заявки клиентом.
+     * Создание заявки клиентом с автоматическим назначением мастера.
      */
     @Transactional
     public RequestResponse createRequest(
@@ -55,16 +57,36 @@ public class RequestService {
             );
         }
 
+        // Получаем адрес и оборудование через существующие Kafka-механизмы.
+        AddressResponse address = getAddress(request.addressId());
+
+        UserEquipmentResponse equipment = getEquipment(
+                clientId,
+                request.equipmentId()
+        );
+
+        if (address == null) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "Адрес не найден"
+            );
+        }
+
+        if (equipment == null) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "Оборудование не найдено"
+            );
+        }
+
+        // Создаём заявку.
         ServiceRequest serviceRequest = new ServiceRequest();
 
         serviceRequest.setClientId(clientId);
         serviceRequest.setAddressId(request.addressId());
-
-        // Квартира из формы создания заявки сохраняется в самой заявке.
         serviceRequest.setApartment(
                 normalizeApartment(request.apartment())
         );
-
         serviceRequest.setEquipmentId(request.equipmentId());
         serviceRequest.setProblemDescription(
                 request.problemDescription().trim()
@@ -76,8 +98,30 @@ public class RequestService {
                 request.preferredVisitAt()
         );
 
-        serviceRequest.setMasterId(null);
-        serviceRequest.setStatus(RequestStatus.NEW);
+        /*
+         * Здесь необходимо получить список мастеров,
+         * подходящих по зоне адреса и специализации оборудования.
+         *
+         * masterIds — UUID мастеров, полученные от user-service
+         * через Kafka.
+         */
+
+        List<UUID> masterIds = masterAssignmentCandidatesRequestService
+                .getCandidates(
+                        address.zoneId(),
+                        equipment.getEquipmentTypeId()
+                );
+
+        // Выбираем мастера с минимальной активной нагрузкой.
+        UUID masterId = selectMasterWithLowestLoad(masterIds);
+
+        if (masterId == null) {
+            serviceRequest.setMasterId(null);
+            serviceRequest.setStatus(RequestStatus.WAITING_FOR_ASSIGNMENT);
+        } else {
+            serviceRequest.setMasterId(masterId);
+            serviceRequest.setStatus(RequestStatus.ASSIGNED);
+        }
 
         return toResponse(
                 serviceRequestRepository.save(serviceRequest)
