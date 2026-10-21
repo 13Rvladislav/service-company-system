@@ -115,6 +115,7 @@ public class ZoneService {
                 .toList();
     }
 
+
     /**
      * Полностью обновить список зон мастера.
      *
@@ -153,7 +154,7 @@ public class ZoneService {
             );
         }
 
-        // Сначала проверяем все зоны.
+        // Проверяем существование всех выбранных зон.
         List<Zone> zones = zoneRepository.findAllById(uniqueZoneIds);
 
         if (zones.size() != uniqueZoneIds.size()) {
@@ -163,21 +164,48 @@ public class ZoneService {
             );
         }
 
-        // Удаляем прежние назначения именно найденного профиля.
-        masterZoneRepository.deleteAllByMaster_Id(master.getId());
+        // Получаем текущие назначения мастера.
+        List<MasterZone> currentAssignments =
+                masterZoneRepository.findAllByMaster_Id(master.getId());
 
-        // Сохраняем новые назначения.
-        List<MasterZone> assignments = zones.stream()
+        // ID уже назначенных зон.
+        Set<UUID> currentZoneIds = currentAssignments.stream()
+                .map(assignment -> assignment.getZone().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        // Удаляем только те назначения, которые пользователь снял.
+        List<MasterZone> assignmentsToDelete = currentAssignments.stream()
+                .filter(assignment ->
+                        !uniqueZoneIds.contains(assignment.getZone().getId())
+                )
+                .toList();
+
+        if (!assignmentsToDelete.isEmpty()) {
+            masterZoneRepository.deleteAll(assignmentsToDelete);
+        }
+
+        // Добавляем только новые назначения.
+        List<MasterZone> assignmentsToCreate = zones.stream()
+                .filter(zone -> !currentZoneIds.contains(zone.getId()))
                 .map(zone -> new MasterZone(master, zone))
                 .toList();
 
-        masterZoneRepository.saveAll(assignments);
+        if (!assignmentsToCreate.isEmpty()) {
+            masterZoneRepository.saveAll(assignmentsToCreate);
+        }
 
-        return zones.stream()
+        // Возвращаем зоны в том порядке, в котором они были выбраны.
+        java.util.Map<UUID, Zone> zonesById = zones.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Zone::getId,
+                        zone -> zone
+                ));
+
+        return zoneIds.stream()
+                .map(zonesById::get)
                 .map(this::map)
                 .toList();
     }
-
     /**
      * Найти профиль мастера по ID профиля
      * или по authUserId из auth-service.
