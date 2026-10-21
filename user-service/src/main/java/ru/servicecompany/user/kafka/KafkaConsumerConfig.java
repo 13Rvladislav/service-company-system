@@ -447,4 +447,70 @@ public class KafkaConsumerConfig {
 
         return factory;
     }
+    @Bean
+    public ConsumerFactory<String, MasterAssignmentCandidatesRequestEvent>
+    masterAssignmentCandidatesConsumerFactory() {
+
+        Map<String, Object> props = new HashMap<>();
+
+        props.put(
+                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                BOOTSTRAP_SERVERS
+        );
+
+        props.put(
+                ConsumerConfig.GROUP_ID_CONFIG,
+                "user-service-master-assignment-candidates-group"
+        );
+
+        props.put(
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+                "earliest"
+        );
+
+        props.put(
+                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+                true
+        );
+
+        JacksonJsonDeserializer<MasterAssignmentCandidatesRequestEvent>
+                deserializer =
+                new JacksonJsonDeserializer<>(
+                        MasterAssignmentCandidatesRequestEvent.class
+                );
+
+        deserializer.ignoreTypeHeaders();
+
+        deserializer.trustedPackages(
+                "ru.servicecompany.user.kafka.event"
+        );
+
+        return new DefaultKafkaConsumerFactory<>(
+                props,
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean(name = "masterAssignmentCandidatesKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<
+            String,
+            MasterAssignmentCandidatesRequestEvent
+            >
+    masterAssignmentCandidatesKafkaListenerContainerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<
+                String,
+                MasterAssignmentCandidatesRequestEvent
+                > factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(
+                masterAssignmentCandidatesConsumerFactory()
+        );
+
+        factory.setConcurrency(1);
+
+        return factory;
+    }
 }

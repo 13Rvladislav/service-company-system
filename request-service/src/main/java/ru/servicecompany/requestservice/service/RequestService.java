@@ -20,6 +20,7 @@ import ru.servicecompany.requestservice.kafka.EquipmentByIdRequestService;
 import ru.servicecompany.requestservice.kafka.MasterByIdRequestService;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -341,6 +342,52 @@ public class RequestService {
         }
 
         return comment.trim();
+    }
+
+    private UUID selectMasterWithLowestLoad(List<UUID> masterIds) {
+
+        System.out.println("\n========== AUTO MASTER ASSIGNMENT ==========");
+
+        if (masterIds == null || masterIds.isEmpty()) {
+            System.out.println("Мастера не найдены!");
+            System.out.println("========================================\n");
+            return null;
+        }
+
+        System.out.println("Найдено мастеров: " + masterIds.size());
+
+        UUID selectedMasterId = null;
+        long minLoad = Long.MAX_VALUE;
+
+        for (UUID masterId : masterIds) {
+
+            long activeRequests =
+                    serviceRequestRepository.countActiveRequestsByMasterId(masterId);
+
+            System.out.println(
+                    "Мастер: " + masterId
+                            + " | Активных заявок: " + activeRequests
+            );
+
+            if (activeRequests < minLoad) {
+                minLoad = activeRequests;
+                selectedMasterId = masterId;
+            }
+        }
+
+        System.out.println("----------------------------------------");
+
+        System.out.println(
+                "ВЫБРАН МАСТЕР: " + selectedMasterId
+        );
+
+        System.out.println(
+                "Его активных заявок: " + minLoad
+        );
+
+        System.out.println("========================================\n");
+
+        return selectedMasterId;
     }
 
     /**

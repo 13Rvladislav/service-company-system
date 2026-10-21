@@ -54,4 +54,17 @@ public interface ServiceRequestRepository
     Optional<ServiceRequest> findByIdForUpdate(
             @Param("requestId") UUID requestId
     );
+
+    @Query("""
+        select count(request)
+        from ServiceRequest request
+        where request.masterId = :masterId
+          and request.status not in (
+              ru.servicecompany.requestservice.enums.RequestStatus.COMPLETED,
+              ru.servicecompany.requestservice.enums.RequestStatus.CANCELLED
+          )
+        """)
+    long countActiveRequestsByMasterId(
+            @Param("masterId") UUID masterId
+    );
 }
