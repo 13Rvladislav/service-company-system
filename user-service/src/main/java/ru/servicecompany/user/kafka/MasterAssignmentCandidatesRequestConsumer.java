@@ -9,6 +9,7 @@ import ru.servicecompany.user.kafka.event.MasterAssignmentCandidatesResponseEven
 import ru.servicecompany.user.repository.MasterProfileRepository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -28,19 +29,38 @@ public class MasterAssignmentCandidatesRequestConsumer {
 
         if (event == null
                 || event.getRequestId() == null
-                || event.getZoneId() == null
                 || event.getEquipmentTypeId() == null) {
 
-            log.error("USER SERVICE: некорректный запрос кандидатов-мастеров");
+            log.error(
+                    "USER SERVICE: некорректный запрос кандидатов-мастеров"
+            );
             return;
         }
 
         try {
-            List<java.util.UUID> masterIds =
-                    masterProfileRepository.findAssignmentCandidates(
-                            event.getZoneId(),
-                            event.getEquipmentTypeId()
-                    );
+            List<UUID> masterIds;
+
+            /*
+             * zoneId == null:
+             * ручное назначение диспетчером.
+             * Ищем мастеров только по специализации.
+             *
+             * zoneId != null:
+             * автоматическое назначение.
+             * Ищем мастеров по зоне и специализации.
+             */
+            if (event.getZoneId() == null) {
+                masterIds = masterProfileRepository
+                        .findManualAssignmentCandidates(
+                                event.getEquipmentTypeId()
+                        );
+            } else {
+                masterIds = masterProfileRepository
+                        .findAssignmentCandidates(
+                                event.getZoneId(),
+                                event.getEquipmentTypeId()
+                        );
+            }
 
             responseProducer.sendResponse(
                     MasterAssignmentCandidatesResponseEvent.builder()

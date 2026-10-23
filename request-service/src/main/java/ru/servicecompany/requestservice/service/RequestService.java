@@ -221,6 +221,7 @@ public class RequestService {
                 request.getUpdatedAt()
         );
     }
+
     /**
      * Получение адреса по ID через существующий Kafka-механизм.
      */
@@ -246,6 +247,64 @@ public class RequestService {
         return equipmentByIdRequestService
                 .getEquipmentById(clientId, equipmentId)
                 .getEquipment();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AssignmentCandidateResponse> getAssignmentCandidates(
+            UUID requestId
+    ) {
+        ServiceRequest request = serviceRequestRepository
+                .findById(requestId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Заявка не найдена"
+                ));
+
+        if (request.getStatus() != RequestStatus.WAITING_FOR_ASSIGNMENT
+                && request.getStatus() != RequestStatus.ASSIGNED) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Нельзя назначить мастера на текущем этапе заявки"
+            );
+        }
+
+        UserEquipmentResponse equipment = getEquipment(
+                request.getClientId(),
+                request.getEquipmentId()
+        );
+
+        if (equipment == null) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "Оборудование заявки не найдено"
+            );
+        }
+
+        List<UUID> masterIds =
+                masterAssignmentCandidatesRequestService.getCandidates(
+                        null,
+                        equipment.getEquipmentTypeId()
+                );
+
+        return masterIds.stream()
+                .map(masterId -> {
+                    MasterResponse master =
+                            masterByIdRequestService.getMasterById(masterId);
+
+                    long activeRequests =
+                            serviceRequestRepository
+                                    .countActiveRequestsByMasterId(masterId);
+
+                    return new AssignmentCandidateResponse(
+                            master.id(),
+                            master.firstName(),
+                            master.lastName(),
+                            master.middleName(),
+                            master.phone(),
+                            activeRequests
+                    );
+                })
+                .toList();
     }
 
     /**

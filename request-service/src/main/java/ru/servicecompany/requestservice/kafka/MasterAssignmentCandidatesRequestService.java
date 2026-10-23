@@ -19,11 +19,20 @@ public class MasterAssignmentCandidatesRequestService {
 
     private final MasterAssignmentCandidatesResponseConsumer consumer;
 
+    /**
+     * Получение мастеров-кандидатов.
+     *
+     * zoneId != null:
+     * автоматическое назначение — зона + специализация.
+     *
+     * zoneId == null:
+     * ручное назначение — только специализация.
+     */
     public List<UUID> getCandidates(
             UUID zoneId,
             UUID equipmentTypeId
     ) {
-        if (zoneId == null || equipmentTypeId == null) {
+        if (equipmentTypeId == null) {
             return List.of();
         }
 
