@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import ru.servicecompany.user.entity.MasterProfile;
 import ru.servicecompany.user.kafka.event.MasterByIdRequestEvent;
 import ru.servicecompany.user.kafka.event.MasterByIdResponseEvent;
@@ -22,6 +23,7 @@ public class MasterByIdRequestConsumer {
             groupId = "user-service-master-by-id-group",
             containerFactory = "masterByIdRequestKafkaListenerContainerFactory"
     )
+    @Transactional(readOnly = true)
     public void consume(MasterByIdRequestEvent event) {
 
         if (event == null
@@ -39,6 +41,21 @@ public class MasterByIdRequestConsumer {
                             new IllegalArgumentException("Мастер не найден")
                     );
 
+            /*
+             * Обычный запрос мастера по ID.
+             * equipmentTypeId == null — проверка специализации не нужна.
+             */
+            Boolean suitable = null;
+
+            if (event.getEquipmentTypeId() != null) {
+                suitable = master.getSpecializations()
+                        .stream()
+                        .anyMatch(specialization ->
+                                specialization.getEquipmentTypeIds()
+                                        .contains(event.getEquipmentTypeId())
+                        );
+            }
+
             responseProducer.sendResponse(
                     MasterByIdResponseEvent.builder()
                             .requestId(event.getRequestId())
@@ -47,13 +64,15 @@ public class MasterByIdRequestConsumer {
                             .lastName(master.getLastName())
                             .middleName(master.getMiddleName())
                             .phone(master.getPhone())
+                            .suitable(suitable)
                             .build()
             );
 
         } catch (Exception e) {
 
             log.error(
-                    "USER SERVICE: не удалось получить мастера, requestId={}, masterId={}",
+                    "USER SERVICE: не удалось получить мастера, "
+                            + "requestId={}, masterId={}",
                     event.getRequestId(),
                     event.getMasterId(),
                     e

@@ -18,4 +18,12 @@ public class MasterByIdRequestEvent {
     private UUID requestId;
 
     private UUID masterId;
+
+    /**
+     * Если задан — проверяем, есть ли у мастера
+     * специализация для указанного типа оборудования.
+     *
+     * Если null — обычное получение мастера по ID.
+     */
+    private UUID equipmentTypeId;
 }

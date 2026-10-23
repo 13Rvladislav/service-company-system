@@ -19,10 +19,19 @@ public class MasterByIdRequestProducer {
             UUID requestId,
             UUID masterId
     ) {
+        requestMaster(requestId, masterId, null);
+    }
+
+    public void requestMaster(
+            UUID requestId,
+            UUID masterId,
+            UUID equipmentTypeId
+    ) {
         MasterByIdRequestEvent event =
                 MasterByIdRequestEvent.builder()
                         .requestId(requestId)
                         .masterId(masterId)
+                        .equipmentTypeId(equipmentTypeId)
                         .build();
 
         kafkaTemplate.send(
@@ -32,9 +41,11 @@ public class MasterByIdRequestProducer {
         );
 
         log.info(
-                "REQUEST SERVICE: отправлен запрос мастера, requestId={}, masterId={}",
+                "REQUEST SERVICE: отправлен запрос мастера, "
+                        + "requestId={}, masterId={}, equipmentTypeId={}",
                 requestId,
-                masterId
+                masterId,
+                equipmentTypeId
         );
     }
 }

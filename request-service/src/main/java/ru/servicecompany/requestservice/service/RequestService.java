@@ -440,6 +440,13 @@ public class RequestService {
             UUID requestId,
             UUID masterId
     ) {
+        if (masterId == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Необходимо указать мастера"
+            );
+        }
+
         ServiceRequest request = getRequestForUpdate(requestId);
 
         boolean canAssign = switch (request.getStatus()) {
@@ -466,11 +473,10 @@ public class RequestService {
             );
         }
 
-        boolean suitable =
-                masterSpecializationCheckRequestService.isSuitable(
-                        masterId,
-                        equipment.getEquipmentTypeId()
-                );
+        boolean suitable = masterByIdRequestService.isSuitable(
+                masterId,
+                equipment.getEquipmentTypeId()
+        );
 
         if (!suitable) {
             throw new ApiException(
@@ -479,6 +485,7 @@ public class RequestService {
             );
         }
 
+        // При переназначении заменяем предыдущего мастера.
         request.setMasterId(masterId);
         request.setStatus(RequestStatus.ASSIGNED);
 

@@ -28,4 +28,10 @@ public class MasterByIdResponseEvent {
     private String phone;
 
     private String error;
+
+    /**
+     * Соответствует ли специализация мастера
+     * указанному типу оборудования.
+     */
+    private Boolean suitable;
 }

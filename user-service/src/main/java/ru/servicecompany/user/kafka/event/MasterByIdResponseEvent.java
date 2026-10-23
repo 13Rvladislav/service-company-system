@@ -2,14 +2,12 @@ package ru.servicecompany.user.kafka.event;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.util.UUID;
 
-@Getter
-@Setter
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,6 +24,15 @@ public class MasterByIdResponseEvent {
     private String middleName;
 
     private String phone;
+
+    /**
+     * Результат проверки специализации мастера.
+     *
+     * true  — мастер подходит для обслуживания оборудования.
+     * false — мастер не подходит.
+     * null  — проверка специализации не выполнялась.
+     */
+    private Boolean suitable;
 
     private String error;
 }

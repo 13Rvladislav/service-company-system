@@ -24,12 +24,55 @@ public class MasterByIdRequestService {
             return null;
         }
 
+        MasterByIdResponseEvent response =
+                sendRequest(masterId, null);
+
+        return new MasterResponse(
+                response.getMasterId(),
+                response.getFirstName(),
+                response.getLastName(),
+                response.getMiddleName(),
+                response.getPhone()
+        );
+    }
+
+    /**
+     * Проверяет, соответствует ли специализация мастера
+     * типу оборудования.
+     *
+     * Зона обслуживания и активная нагрузка не проверяются.
+     */
+    public boolean isSuitable(
+            UUID masterId,
+            UUID equipmentTypeId
+    ) {
+        if (masterId == null || equipmentTypeId == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Необходимо указать мастера и тип оборудования"
+            );
+        }
+
+        MasterByIdResponseEvent response =
+                sendRequest(masterId, equipmentTypeId);
+
+        return Boolean.TRUE.equals(response.getSuitable());
+    }
+
+    private MasterByIdResponseEvent sendRequest(
+            UUID masterId,
+            UUID equipmentTypeId
+    ) {
         UUID requestId = UUID.randomUUID();
 
         var future = consumer.registerRequest(requestId);
 
         try {
-            producer.requestMaster(requestId, masterId);
+            producer.requestMaster(
+                    requestId,
+                    masterId,
+                    equipmentTypeId
+            );
 
             MasterByIdResponseEvent response =
                     future.get(50, TimeUnit.SECONDS);
@@ -41,13 +84,7 @@ public class MasterByIdRequestService {
                 );
             }
 
-            return new MasterResponse(
-                    response.getMasterId(),
-                    response.getFirstName(),
-                    response.getLastName(),
-                    response.getMiddleName(),
-                    response.getPhone()
-            );
+            return response;
 
         } catch (TimeoutException e) {
             throw new ApiException(
