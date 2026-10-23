@@ -35,61 +35,65 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        .requestMatchers(
-                                HttpMethod.OPTIONS,
-                                "/**"
-                        ).permitAll()
+                                .requestMatchers(
+                                        HttpMethod.OPTIONS,
+                                        "/**"
+                                ).permitAll()
 
-                        .requestMatchers(
-                                "/swagger",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/actuator/health"
-                        ).permitAll()
+                                .requestMatchers(
+                                        "/swagger",
+                                        "/swagger-ui/**",
+                                        "/v3/api-docs/**",
+                                        "/actuator/health"
+                                ).permitAll()
 
-                        // Создание заявки клиентом
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/requests"
-                        ).hasRole("CLIENT")
+                                // Создание заявки клиентом
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/requests"
+                                ).hasRole("CLIENT")
 
-                        // Список заявок клиента
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/requests/my"
-                        ).hasRole("CLIENT")
+                                // Список заявок клиента
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/requests/my"
+                                ).hasRole("CLIENT")
 
-                        // Редактирование заявки клиентом
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/requests/**"
-                        ).hasRole("CLIENT")
+                                // Редактирование заявки клиентом
+                                .requestMatchers(
+                                        HttpMethod.PATCH,
+                                        "/api/requests/**"
+                                ).hasRole("CLIENT")
 
-                        // Отмена заявки клиентом
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/requests/*/cancel"
-                        ).hasRole("CLIENT")
+                                // Отмена заявки клиентом
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/requests/*/cancel"
+                                ).hasRole("CLIENT")
 
-                        // Назначение или переназначение мастера
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/requests/*/assign"
-                        ).hasAnyRole("DISPATCHER", "ADMIN")
+                                // Назначение или переназначение мастера
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/requests/*/assign"
+                                ).hasAnyRole("DISPATCHER", "ADMIN")
 
-                        // Отмена заявки диспетчером или администратором
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/requests/*/admin-cancel"
-                        ).hasAnyRole("DISPATCHER", "ADMIN")
+                                // Отмена заявки диспетчером или администратором
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/requests/*/admin-cancel"
+                                ).hasAnyRole("DISPATCHER", "ADMIN")
 
-                        // Список всех заявок для управления
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/requests/all"
-                        ).hasAnyRole("DISPATCHER", "ADMIN")
-
-                        .anyRequest().authenticated()
+                                // Список всех заявок для управления
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/requests/all"
+                                ).hasAnyRole("DISPATCHER", "ADMIN")
+// Получение кандидатов для ручного назначения мастера
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/requests/*/assignment-candidates"
+                                ).hasAnyRole("DISPATCHER", "ADMIN")
+                                .anyRequest().authenticated()
                 )
 
                 .addFilterBefore(

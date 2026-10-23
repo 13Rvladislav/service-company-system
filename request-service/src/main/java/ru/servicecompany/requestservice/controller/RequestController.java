@@ -144,6 +144,16 @@ public class RequestController {
     }
 
     /**
+     * Получение кандидатов для ручного назначения мастера.
+     */
+    @GetMapping("/{id}/assignment-candidates")
+    public List<AssignmentCandidateResponse> getAssignmentCandidates(
+            @PathVariable UUID id
+    ) {
+        return requestService.getAssignmentCandidates(id);
+    }
+
+    /**
      * Получение списка заявок для диспетчера и администратора.
      */
     @GetMapping("/all")
