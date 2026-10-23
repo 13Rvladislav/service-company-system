@@ -435,6 +435,21 @@ public class RequestService {
         return selectedMasterId;
     }
 
+    /**
+     * Отмена заявки диспетчером или администратором.
+     * Разрешена на любом этапе выполнения заявки.
+     */
+    @Transactional
+    public RequestResponse cancelRequestByAdmin(UUID requestId) {
+        ServiceRequest request = getRequestForUpdate(requestId);
+
+        request.setStatus(RequestStatus.CANCELLED);
+
+        return toResponse(
+                serviceRequestRepository.save(request)
+        );
+    }
+
     @Transactional
     public RequestResponse assignMaster(
             UUID requestId,
@@ -493,6 +508,7 @@ public class RequestService {
                 serviceRequestRepository.save(request)
         );
     }
+
     /**
      * Преобразование заявки в обычный ответ.
      */

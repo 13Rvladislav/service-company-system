@@ -126,6 +126,13 @@ public class RequestController {
         );
     }
 
+    @PostMapping("/{id}/admin-cancel")
+    public RequestResponse cancelRequestByAdmin(
+            @PathVariable UUID id
+    ) {
+        return requestService.cancelRequestByAdmin(id);
+    }
+
     @GetMapping("/profile")
     public ClientProfileResponse getClientProfile(
             @AuthenticationPrincipal JwtUserPrincipal principal

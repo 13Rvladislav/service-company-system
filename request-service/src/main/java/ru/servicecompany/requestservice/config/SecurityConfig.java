@@ -69,7 +69,10 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/requests/*/assign"
                         ).hasAnyRole("DISPATCHER", "ADMIN")
-
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/requests/*/admin-cancel"
+                        ).hasAnyRole("DISPATCHER", "ADMIN")
                         .anyRequest().authenticated()
                 )
 
