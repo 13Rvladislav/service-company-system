@@ -7,12 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
-import ru.servicecompany.requestservice.dto.response.AddressResponse;
-import ru.servicecompany.requestservice.dto.response.MasterResponse;
-import ru.servicecompany.requestservice.dto.response.MyRequestResponse;
-import ru.servicecompany.requestservice.dto.response.RequestDetailsResponse;
-import ru.servicecompany.requestservice.dto.response.RequestResponse;
-import ru.servicecompany.requestservice.dto.response.UserEquipmentResponse;
+import ru.servicecompany.requestservice.dto.response.*;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
 import ru.servicecompany.requestservice.kafka.AddressByIdRequestService;
@@ -132,29 +127,50 @@ public class RequestService {
     /**
      * Получение подробной карточки заявки клиентом.
      */
+    /**
+     * Получение подробной карточки заявки.
+     * Клиент видит только свои заявки.
+     * Диспетчер и администратор могут просматривать заявки любых клиентов.
+     */
     @Transactional(readOnly = true)
     public RequestDetailsResponse getRequestDetails(
-            UUID clientId,
+            UUID userId,
+            String role,
             UUID requestId
     ) {
-        ServiceRequest request = serviceRequestRepository
-                .findByIdAndClientId(requestId, clientId)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "Заявка не найдена"
-                ));
+        ServiceRequest request;
 
-        /*
-         * Получаем адрес через существующий Kafka-механизм.
-         */
+        // Клиент может просматривать только собственные заявки.
+        if ("CLIENT".equals(role)) {
+            request = serviceRequestRepository
+                    .findByIdAndClientId(requestId, userId)
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Заявка не найдена"
+                    ));
+        } else if ("DISPATCHER".equals(role)
+                || "ADMIN".equals(role)) {
+
+            // Диспетчер и администратор могут просматривать любую заявку.
+            request = serviceRequestRepository
+                    .findById(requestId)
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Заявка не найдена"
+                    ));
+        } else {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "Недостаточно прав для просмотра заявки"
+            );
+        }
+
+        // Получаем адрес через существующий Kafka-механизм.
         AddressResponse address = getAddress(
                 request.getAddressId()
         );
 
-        /*
-         * Номер квартиры берём именно из карточки заявки.
-         * Не используем квартиру из профиля клиента.
-         */
+        // Номер квартиры берём именно из карточки заявки.
         if (address != null) {
             address = new AddressResponse(
                     address.cityId(),
@@ -168,23 +184,14 @@ public class RequestService {
             );
         }
 
-        /*
-         * Получаем оборудование через существующий Kafka-механизм.
-         */
+        // Получаем оборудование через существующий Kafka-механизм.
+        // Используем clientId самой заявки, а не userId просматривающего.
         UserEquipmentResponse equipment = getEquipment(
-                clientId,
+                request.getClientId(),
                 request.getEquipmentId()
         );
 
-        /*
-         * Получаем данные назначенного мастера.
-         *
-         * masterId — ID мастера из ServiceRequest.
-         * clientId — ID клиента, который просматривает заявку.
-         *
-         * Для получения мастера используем masterId заявки,
-         * а не clientId текущего пользователя.
-         */
+        // Получаем назначенного мастера по masterId заявки.
         MasterResponse master = null;
 
         if (request.getMasterId() != null) {
@@ -193,9 +200,6 @@ public class RequestService {
             );
         }
 
-        /*
-         * Возвращаем полную карточку заявки.
-         */
         return new RequestDetailsResponse(
                 request.getId(),
 
@@ -217,7 +221,6 @@ public class RequestService {
                 request.getUpdatedAt()
         );
     }
-
     /**
      * Получение адреса по ID через существующий Kafka-механизм.
      */
@@ -448,6 +451,49 @@ public class RequestService {
         return toResponse(
                 serviceRequestRepository.save(request)
         );
+    }
+
+    /**
+     * Получение списка заявок для диспетчера и администратора.
+     */
+    @Transactional(readOnly = true)
+    public List<ManagementRequestResponse> getManagementRequests() {
+        return serviceRequestRepository
+                .findAllByOrderByCreatedAtDesc()
+                .stream()
+                .sorted(
+                        Comparator.comparingInt(
+                                request -> getManagementPriority(request.getStatus())
+                        )
+                )
+                .map(request -> new ManagementRequestResponse(
+                        request.getId(),
+                        request.getClientId(),
+                        request.getMasterId(),
+                        request.getAddressId(),
+                        request.getEquipmentId(),
+                        request.getApartment(),
+                        request.getProblemDescription(),
+                        request.getStatus(),
+                        request.getPreferredVisitAt(),
+                        request.getCreatedAt()
+                ))
+                .toList();
+    }
+
+    private int getManagementPriority(RequestStatus status) {
+        return switch (status) {
+            case WAITING_FOR_ASSIGNMENT -> 0;
+            case ASSIGNED -> 1;
+            case REJECTED -> 2;
+            case NEW -> 3;
+            case ACCEPTED -> 4;
+            case IN_PROGRESS -> 5;
+            case REPORT_SUBMITTED -> 6;
+            case REVISION_REQUIRED -> 7;
+            case COMPLETED -> 8;
+            case CANCELLED -> 9;
+        };
     }
 
     @Transactional

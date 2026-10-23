@@ -34,6 +34,7 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
+
                         .requestMatchers(
                                 HttpMethod.OPTIONS,
                                 "/**"
@@ -46,33 +47,48 @@ public class SecurityConfig {
                                 "/actuator/health"
                         ).permitAll()
 
+                        // Создание заявки клиентом
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/requests"
                         ).hasRole("CLIENT")
 
+                        // Список заявок клиента
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/requests/my"
                         ).hasRole("CLIENT")
 
+                        // Редактирование заявки клиентом
                         .requestMatchers(
                                 HttpMethod.PATCH,
                                 "/api/requests/**"
                         ).hasRole("CLIENT")
 
+                        // Отмена заявки клиентом
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/requests/*/cancel"
                         ).hasRole("CLIENT")
+
+                        // Назначение или переназначение мастера
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/requests/*/assign"
                         ).hasAnyRole("DISPATCHER", "ADMIN")
+
+                        // Отмена заявки диспетчером или администратором
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/requests/*/admin-cancel"
                         ).hasAnyRole("DISPATCHER", "ADMIN")
+
+                        // Список всех заявок для управления
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/requests/all"
+                        ).hasAnyRole("DISPATCHER", "ADMIN")
+
                         .anyRequest().authenticated()
                 )
 

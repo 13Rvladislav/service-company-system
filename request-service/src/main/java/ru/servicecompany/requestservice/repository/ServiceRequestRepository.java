@@ -22,6 +22,8 @@ public interface ServiceRequestRepository
             UUID clientId
     );
 
+    List<ServiceRequest> findAllByOrderByCreatedAtDesc();
+
     List<ServiceRequest> findAllByMasterId(UUID masterId);
 
     List<ServiceRequest> findAllByStatus(RequestStatus status);
@@ -40,6 +42,7 @@ public interface ServiceRequestRepository
             UUID id,
             UUID clientId
     );
+
     /**
      * Блокирует заявку на время транзакции.
      * Это предотвращает одновременное изменение её статуса
@@ -56,14 +59,14 @@ public interface ServiceRequestRepository
     );
 
     @Query("""
-        select count(request)
-        from ServiceRequest request
-        where request.masterId = :masterId
-          and request.status not in (
-              ru.servicecompany.requestservice.enums.RequestStatus.COMPLETED,
-              ru.servicecompany.requestservice.enums.RequestStatus.CANCELLED
-          )
-        """)
+            select count(request)
+            from ServiceRequest request
+            where request.masterId = :masterId
+              and request.status not in (
+                  ru.servicecompany.requestservice.enums.RequestStatus.COMPLETED,
+                  ru.servicecompany.requestservice.enums.RequestStatus.CANCELLED
+              )
+            """)
     long countActiveRequestsByMasterId(
             @Param("masterId") UUID masterId
     );

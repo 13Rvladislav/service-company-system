@@ -1,3 +1,4 @@
+
 package ru.servicecompany.requestservice.controller;
 
 import jakarta.validation.Valid;
@@ -52,6 +53,9 @@ public class RequestController {
         );
     }
 
+    /**
+     * Получение заявок текущего клиента.
+     */
     @GetMapping("/my")
     public ResponseEntity<List<MyRequestResponse>> getMyRequests(
             Authentication authentication
@@ -64,20 +68,24 @@ public class RequestController {
         );
     }
 
+    /**
+     * Получение подробной карточки заявки.
+     */
     @GetMapping("/{id}")
     public RequestDetailsResponse getRequestDetails(
-            Authentication authentication,
+            @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable UUID id
     ) {
-        JwtUserPrincipal principal =
-                (JwtUserPrincipal) authentication.getPrincipal();
-
         return requestService.getRequestDetails(
                 principal.userId(),
+                principal.role(),
                 id
         );
     }
 
+    /**
+     * Редактирование заявки клиентом.
+     */
     @PatchMapping("/{id}")
     public RequestResponse updateRequest(
             Authentication authentication,
@@ -94,6 +102,9 @@ public class RequestController {
         );
     }
 
+    /**
+     * Отмена заявки клиентом.
+     */
     @PostMapping("/{id}/cancel")
     public RequestResponse cancelRequest(
             Authentication authentication,
@@ -108,13 +119,19 @@ public class RequestController {
         );
     }
 
-    @GetMapping("/create-form")
+    /**
+     * Получение данных для формы создания заявки.
+     */
+    @GetMapping("/form-data")
     public CreateRequestFormResponse getCreateForm(
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
         return createRequestFormService.getCreateForm(principal);
     }
 
+    /**
+     * Назначение или переназначение мастера.
+     */
     @PostMapping("/{id}/assign")
     public RequestResponse assignMaster(
             @PathVariable UUID id,
@@ -126,6 +143,19 @@ public class RequestController {
         );
     }
 
+    /**
+     * Получение списка заявок для диспетчера и администратора.
+     */
+    @GetMapping("/all")
+    public ResponseEntity<List<ManagementRequestResponse>> getManagementRequests() {
+        return ResponseEntity.ok(
+                requestService.getManagementRequests()
+        );
+    }
+
+    /**
+     * Отмена заявки диспетчером или администратором.
+     */
     @PostMapping("/{id}/admin-cancel")
     public RequestResponse cancelRequestByAdmin(
             @PathVariable UUID id
@@ -133,34 +163,5 @@ public class RequestController {
         return requestService.cancelRequestByAdmin(id);
     }
 
-    @GetMapping("/profile")
-    public ClientProfileResponse getClientProfile(
-            @AuthenticationPrincipal JwtUserPrincipal principal
-    ) {
-        ProfileResponseEvent profile =
-                profileRequestService.getProfile(
-                        principal.userId(),
-                        principal.role()
-                );
 
-        return ClientProfileResponse.builder()
-                .id(profile.getId())
-                .authUserId(profile.getAuthUserId())
-                .role(profile.getRole())
-                .firstName(profile.getFirstName())
-                .lastName(profile.getLastName())
-                .middleName(profile.getMiddleName())
-                .phone(profile.getPhone())
-                .hasAvatar(profile.getHasAvatar())
-                .cityId(profile.getCityId())
-                .cityName(profile.getCityName())
-                .streetId(profile.getStreetId())
-                .streetName(profile.getStreetName())
-                .houseId(profile.getHouseId())
-                .houseNumber(profile.getHouseNumber())
-                .apartment(profile.getApartment())
-                .employeeNumber(profile.getEmployeeNumber())
-                .status(profile.getStatus())
-                .build();
-    }
 }
