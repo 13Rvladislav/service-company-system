@@ -34,4 +34,10 @@ public final class KafkaTopics {
 
     public static final String MASTER_ASSIGNMENT_CANDIDATES_RESPONSE =
             "master.assignment-candidates.response";
+
+    public static final String MASTER_SPECIALIZATION_CHECK_REQUEST =
+            "master-specialization-check-request";
+
+    public static final String MASTER_SPECIALIZATION_CHECK_RESPONSE =
+            "master-specialization-check-response";
 }

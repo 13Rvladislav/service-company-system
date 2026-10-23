@@ -65,6 +65,10 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/requests/*/cancel"
                         ).hasRole("CLIENT")
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/requests/*/assign"
+                        ).hasAnyRole("DISPATCHER", "ADMIN")
 
                         .anyRequest().authenticated()
                 )

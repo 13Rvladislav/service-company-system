@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import ru.servicecompany.requestservice.config.JwtUserPrincipal;
+import ru.servicecompany.requestservice.dto.request.AssignMasterRequest;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.*;
@@ -112,6 +113,17 @@ public class RequestController {
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
         return createRequestFormService.getCreateForm(principal);
+    }
+
+    @PostMapping("/{id}/assign")
+    public RequestResponse assignMaster(
+            @PathVariable UUID id,
+            @Valid @RequestBody AssignMasterRequest request
+    ) {
+        return requestService.assignMaster(
+                id,
+                request.masterId()
+        );
     }
 
     @GetMapping("/profile")

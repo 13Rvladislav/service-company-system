@@ -35,6 +35,7 @@ public class RequestService {
     private final MasterByIdRequestService masterByIdRequestService;
     private final MasterAssignmentCandidatesRequestService
             masterAssignmentCandidatesRequestService;
+
     /**
      * Создание заявки клиентом с автоматическим назначением мастера.
      */
@@ -434,6 +435,57 @@ public class RequestService {
         return selectedMasterId;
     }
 
+    @Transactional
+    public RequestResponse assignMaster(
+            UUID requestId,
+            UUID masterId
+    ) {
+        ServiceRequest request = getRequestForUpdate(requestId);
+
+        boolean canAssign = switch (request.getStatus()) {
+            case WAITING_FOR_ASSIGNMENT, ASSIGNED -> true;
+            default -> false;
+        };
+
+        if (!canAssign) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Нельзя назначить мастера на текущем этапе заявки"
+            );
+        }
+
+        UserEquipmentResponse equipment = getEquipment(
+                request.getClientId(),
+                request.getEquipmentId()
+        );
+
+        if (equipment == null) {
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "Оборудование заявки не найдено"
+            );
+        }
+
+        boolean suitable =
+                masterSpecializationCheckRequestService.isSuitable(
+                        masterId,
+                        equipment.getEquipmentTypeId()
+                );
+
+        if (!suitable) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Специализация мастера не соответствует оборудованию заявки"
+            );
+        }
+
+        request.setMasterId(masterId);
+        request.setStatus(RequestStatus.ASSIGNED);
+
+        return toResponse(
+                serviceRequestRepository.save(request)
+        );
+    }
     /**
      * Преобразование заявки в обычный ответ.
      */
