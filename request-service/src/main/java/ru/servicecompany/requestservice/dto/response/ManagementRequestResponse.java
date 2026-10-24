@@ -7,14 +7,7 @@ import java.util.UUID;
 
 public record ManagementRequestResponse(
         UUID id,
-        UUID clientId,
-        UUID masterId,
-        UUID addressId,
-        UUID equipmentId,
-        String apartment,
-        String problemDescription,
-        RequestStatus status,
-        LocalDateTime preferredVisitAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        RequestStatus status
 ) {
 }

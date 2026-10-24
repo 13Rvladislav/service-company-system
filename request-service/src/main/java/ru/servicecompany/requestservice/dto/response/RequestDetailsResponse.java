@@ -4,7 +4,6 @@ import ru.servicecompany.requestservice.enums.RequestStatus;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-
 public record RequestDetailsResponse(
         UUID id,
         UUID addressId,
@@ -14,6 +13,12 @@ public record RequestDetailsResponse(
         UserEquipmentResponse equipment,
         UUID masterId,
         MasterResponse master,
+
+        UUID clientId,
+        String clientFirstName,
+        String clientLastName,
+        String clientMiddleName,
+
         String problemDescription,
         String clientComment,
         RequestStatus status,

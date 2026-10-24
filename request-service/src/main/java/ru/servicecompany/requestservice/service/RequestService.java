@@ -10,10 +10,8 @@ import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.*;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.enums.RequestStatus;
-import ru.servicecompany.requestservice.kafka.AddressByIdRequestService;
-import ru.servicecompany.requestservice.kafka.EquipmentByIdRequestService;
-import ru.servicecompany.requestservice.kafka.MasterAssignmentCandidatesRequestService;
-import ru.servicecompany.requestservice.kafka.MasterByIdRequestService;
+import ru.servicecompany.requestservice.kafka.*;
+import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 
 import java.util.Comparator;
@@ -30,6 +28,7 @@ public class RequestService {
     private final MasterByIdRequestService masterByIdRequestService;
     private final MasterAssignmentCandidatesRequestService
             masterAssignmentCandidatesRequestService;
+    private final ProfileRequestService profileRequestService;
 
     /**
      * Создание заявки клиентом с автоматическим назначением мастера.
@@ -94,14 +93,7 @@ public class RequestService {
                 request.preferredVisitAt()
         );
 
-        /*
-         * Здесь необходимо получить список мастеров,
-         * подходящих по зоне адреса и специализации оборудования.
-         *
-         * masterIds — UUID мастеров, полученные от user-service
-         * через Kafka.
-         */
-
+        // Получаем мастеров по зоне и специализации.
         List<UUID> masterIds = masterAssignmentCandidatesRequestService
                 .getCandidates(
                         address.zoneId(),
@@ -124,9 +116,6 @@ public class RequestService {
         );
     }
 
-    /**
-     * Получение подробной карточки заявки клиентом.
-     */
     /**
      * Получение подробной карточки заявки.
      * Клиент видит только свои заявки.
@@ -184,14 +173,13 @@ public class RequestService {
             );
         }
 
-        // Получаем оборудование через существующий Kafka-механизм.
-        // Используем clientId самой заявки, а не userId просматривающего.
+        // Получаем оборудование по clientId самой заявки.
         UserEquipmentResponse equipment = getEquipment(
                 request.getClientId(),
                 request.getEquipmentId()
         );
 
-        // Получаем назначенного мастера по masterId заявки.
+        // Получаем назначенного мастера.
         MasterResponse master = null;
 
         if (request.getMasterId() != null) {
@@ -199,6 +187,13 @@ public class RequestService {
                     request.getMasterId()
             );
         }
+
+        // Получаем профиль клиента, создавшего заявку.
+        ProfileResponseEvent clientProfile =
+                profileRequestService.getProfile(
+                        request.getClientId(),
+                        "CLIENT"
+                );
 
         return new RequestDetailsResponse(
                 request.getId(),
@@ -212,6 +207,11 @@ public class RequestService {
 
                 request.getMasterId(),
                 master,
+
+                request.getClientId(),
+                clientProfile.getFirstName(),
+                clientProfile.getLastName(),
+                clientProfile.getMiddleName(),
 
                 request.getProblemDescription(),
                 request.getClientComment(),
@@ -249,6 +249,9 @@ public class RequestService {
                 .getEquipment();
     }
 
+    /**
+     * Получение кандидатов для ручного назначения мастера.
+     */
     @Transactional(readOnly = true)
     public List<AssignmentCandidateResponse> getAssignmentCandidates(
             UUID requestId
@@ -451,48 +454,26 @@ public class RequestService {
         return comment.trim();
     }
 
+    /**
+     * Выбор мастера с минимальной активной нагрузкой.
+     */
     private UUID selectMasterWithLowestLoad(List<UUID> masterIds) {
-
-        System.out.println("\n========== AUTO MASTER ASSIGNMENT ==========");
-
         if (masterIds == null || masterIds.isEmpty()) {
-            System.out.println("Мастера не найдены!");
-            System.out.println("========================================\n");
             return null;
         }
-
-        System.out.println("Найдено мастеров: " + masterIds.size());
 
         UUID selectedMasterId = null;
         long minLoad = Long.MAX_VALUE;
 
         for (UUID masterId : masterIds) {
-
             long activeRequests =
                     serviceRequestRepository.countActiveRequestsByMasterId(masterId);
-
-            System.out.println(
-                    "Мастер: " + masterId
-                            + " | Активных заявок: " + activeRequests
-            );
 
             if (activeRequests < minLoad) {
                 minLoad = activeRequests;
                 selectedMasterId = masterId;
             }
         }
-
-        System.out.println("----------------------------------------");
-
-        System.out.println(
-                "ВЫБРАН МАСТЕР: " + selectedMasterId
-        );
-
-        System.out.println(
-                "Его активных заявок: " + minLoad
-        );
-
-        System.out.println("========================================\n");
 
         return selectedMasterId;
     }
@@ -527,15 +508,8 @@ public class RequestService {
                 )
                 .map(request -> new ManagementRequestResponse(
                         request.getId(),
-                        request.getClientId(),
-                        request.getMasterId(),
-                        request.getAddressId(),
-                        request.getEquipmentId(),
-                        request.getApartment(),
-                        request.getProblemDescription(),
-                        request.getStatus(),
-                        request.getPreferredVisitAt(),
-                        request.getCreatedAt()
+                        request.getCreatedAt(),
+                        request.getStatus()
                 ))
                 .toList();
     }
@@ -555,6 +529,9 @@ public class RequestService {
         };
     }
 
+    /**
+     * Назначение или переназначение мастера.
+     */
     @Transactional
     public RequestResponse assignMaster(
             UUID requestId,
