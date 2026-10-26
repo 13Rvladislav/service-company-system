@@ -1,3 +1,4 @@
+
 package ru.servicecompany.user.kafka;
 
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,6 @@ import java.util.UUID;
 public class MasterAssignmentCandidatesRequestConsumer {
 
     private final MasterProfileRepository masterProfileRepository;
-
     private final MasterAssignmentCandidatesResponseProducer responseProducer;
 
     @KafkaListener(
@@ -30,25 +30,13 @@ public class MasterAssignmentCandidatesRequestConsumer {
         if (event == null
                 || event.getRequestId() == null
                 || event.getEquipmentTypeId() == null) {
-
-            log.error(
-                    "USER SERVICE: некорректный запрос кандидатов-мастеров"
-            );
+            log.error("USER SERVICE: некорректный запрос кандидатов-мастеров");
             return;
         }
 
         try {
             List<UUID> masterIds;
 
-            /*
-             * zoneId == null:
-             * ручное назначение диспетчером.
-             * Ищем мастеров только по специализации.
-             *
-             * zoneId != null:
-             * автоматическое назначение.
-             * Ищем мастеров по зоне и специализации.
-             */
             if (event.getZoneId() == null) {
                 masterIds = masterProfileRepository
                         .findManualAssignmentCandidates(
@@ -70,7 +58,6 @@ public class MasterAssignmentCandidatesRequestConsumer {
             );
 
         } catch (Exception e) {
-
             log.error(
                     "USER SERVICE: ошибка поиска мастеров-кандидатов, requestId={}",
                     event.getRequestId(),

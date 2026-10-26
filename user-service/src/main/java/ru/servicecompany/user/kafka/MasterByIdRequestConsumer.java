@@ -1,3 +1,4 @@
+
 package ru.servicecompany.user.kafka;
 
 import lombok.RequiredArgsConstructor;
@@ -29,22 +30,17 @@ public class MasterByIdRequestConsumer {
         if (event == null
                 || event.getRequestId() == null
                 || event.getMasterId() == null) {
-
             log.error("USER SERVICE: некорректный запрос мастера");
             return;
         }
 
         try {
             MasterProfile master = masterProfileRepository
-                    .findById(event.getMasterId())
+                    .findByAuthUserId(event.getMasterId())
                     .orElseThrow(() ->
                             new IllegalArgumentException("Мастер не найден")
                     );
 
-            /*
-             * Обычный запрос мастера по ID.
-             * equipmentTypeId == null — проверка специализации не нужна.
-             */
             Boolean suitable = null;
 
             if (event.getEquipmentTypeId() != null) {
@@ -59,7 +55,7 @@ public class MasterByIdRequestConsumer {
             responseProducer.sendResponse(
                     MasterByIdResponseEvent.builder()
                             .requestId(event.getRequestId())
-                            .masterId(master.getId())
+                            .masterId(master.getAuthUserId())
                             .firstName(master.getFirstName())
                             .lastName(master.getLastName())
                             .middleName(master.getMiddleName())
@@ -69,10 +65,8 @@ public class MasterByIdRequestConsumer {
             );
 
         } catch (Exception e) {
-
             log.error(
-                    "USER SERVICE: не удалось получить мастера, "
-                            + "requestId={}, masterId={}",
+                    "USER SERVICE: не удалось получить мастера, requestId={}, masterId={}",
                     event.getRequestId(),
                     event.getMasterId(),
                     e

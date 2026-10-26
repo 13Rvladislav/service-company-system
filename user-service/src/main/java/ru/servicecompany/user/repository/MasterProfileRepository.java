@@ -1,3 +1,4 @@
+
 package ru.servicecompany.user.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,7 +18,7 @@ public interface MasterProfileRepository
     boolean existsByAuthUserId(UUID authUserId);
 
     @Query("""
-            select distinct master.id
+            select distinct master.authUserId
             from MasterProfile master
             join master.specializations specialization
             join specialization.equipmentTypeIds equipmentTypeId
@@ -28,7 +29,7 @@ public interface MasterProfileRepository
     );
 
     @Query("""
-            select distinct master.id
+            select distinct master.authUserId
             from MasterProfile master
             join MasterZone masterZone
                 on masterZone.master = master
