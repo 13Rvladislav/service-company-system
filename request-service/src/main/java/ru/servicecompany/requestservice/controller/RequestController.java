@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +23,6 @@ import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
 import ru.servicecompany.requestservice.dto.request.UpdateRequestRequest;
 import ru.servicecompany.requestservice.dto.response.*;
 import ru.servicecompany.requestservice.kafka.ProfileRequestService;
-import ru.servicecompany.requestservice.kafka.event.ProfileResponseEvent;
 import ru.servicecompany.requestservice.service.CreateRequestFormService;
 import ru.servicecompany.requestservice.service.RequestService;
 
@@ -54,7 +54,7 @@ public class RequestController {
     }
 
     /**
-     * Получение заявок текущего клиента.
+     * Заявки текущего клиента.
      */
     @GetMapping("/my")
     public ResponseEntity<List<MyRequestResponse>> getMyRequests(
@@ -69,7 +69,7 @@ public class RequestController {
     }
 
     /**
-     * Получение подробной карточки заявки.
+     * Подробная карточка заявки.
      */
     @GetMapping("/{id}")
     public RequestDetailsResponse getRequestDetails(
@@ -120,7 +120,7 @@ public class RequestController {
     }
 
     /**
-     * Получение данных для формы создания заявки.
+     * Данные для формы создания заявки.
      */
     @GetMapping("/form-data")
     public CreateRequestFormResponse getCreateForm(
@@ -130,7 +130,7 @@ public class RequestController {
     }
 
     /**
-     * Назначение или переназначение мастера.
+     * Ручное назначение или переназначение мастера.
      */
     @PostMapping("/{id}/assign")
     public RequestResponse assignMaster(
@@ -144,7 +144,7 @@ public class RequestController {
     }
 
     /**
-     * Получение кандидатов для ручного назначения мастера.
+     * Кандидаты для ручного назначения.
      */
     @GetMapping("/{id}/assignment-candidates")
     public List<AssignmentCandidateResponse> getAssignmentCandidates(
@@ -154,10 +154,11 @@ public class RequestController {
     }
 
     /**
-     * Получение списка заявок для диспетчера и администратора.
+     * Все заявки для диспетчера и администратора.
      */
     @GetMapping("/all")
-    public ResponseEntity<List<ManagementRequestResponse>> getManagementRequests() {
+    public ResponseEntity<List<ManagementRequestResponse>>
+    getManagementRequests() {
         return ResponseEntity.ok(
                 requestService.getManagementRequests()
         );
@@ -173,5 +174,64 @@ public class RequestController {
         return requestService.cancelRequestByAdmin(id);
     }
 
+    /**
+     * Список заявок, назначенных текущему мастеру.
+     */
+    @GetMapping("/master")
+    public List<ManagementRequestResponse> getMasterRequests(
+            @AuthenticationPrincipal JwtUserPrincipal principal
+    ) {
+        requireEngineer(principal);
+        System.out.println(
+                "JWT userId = " + principal.userId()
+        );
+        System.out.println(
+                "JWT role = " + principal.role()
+        );
+        return requestService.getMasterRequests(
+                principal.userId()
+        );
+    }
 
+    /**
+     * Принять назначенную заявку.
+     * ASSIGNED -> IN_PROGRESS.
+     */
+    @PostMapping("/{id}/master-accept")
+    public RequestResponse acceptAssignedRequest(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable UUID id
+    ) {
+        requireEngineer(principal);
+
+        return requestService.acceptAssignedRequest(
+                principal.userId(),
+                id
+        );
+    }
+
+    /**
+     * Отклонить назначение.
+     * ASSIGNED -> WAITING_FOR_ASSIGNMENT, masterId -> null.
+     */
+    @PostMapping("/{id}/master-reject")
+    public RequestResponse rejectAssignedRequest(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable UUID id
+    ) {
+        requireEngineer(principal);
+
+        return requestService.rejectAssignedRequest(
+                principal.userId(),
+                id
+        );
+    }
+
+    private void requireEngineer(JwtUserPrincipal principal) {
+        if (principal == null || !"ENGINEER".equals(principal.role())) {
+            throw new AccessDeniedException(
+                    "Действие доступно только мастеру"
+            );
+        }
+    }
 }

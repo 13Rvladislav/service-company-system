@@ -26,6 +26,10 @@ public interface ServiceRequestRepository
 
     List<ServiceRequest> findAllByMasterId(UUID masterId);
 
+    List<ServiceRequest> findAllByMasterIdOrderByCreatedAtDesc(
+            UUID masterId
+    );
+
     List<ServiceRequest> findAllByStatus(RequestStatus status);
 
     List<ServiceRequest> findAllByClientIdAndStatus(
@@ -43,10 +47,14 @@ public interface ServiceRequestRepository
             UUID clientId
     );
 
+    Optional<ServiceRequest> findByIdAndMasterId(
+            UUID id,
+            UUID masterId
+    );
+
     /**
      * Блокирует заявку на время транзакции.
-     * Это предотвращает одновременное изменение её статуса
-     * другим запросом, пока выполняется редактирование или отмена.
+     * Предотвращает параллельное изменение заявки.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -58,6 +66,9 @@ public interface ServiceRequestRepository
             @Param("requestId") UUID requestId
     );
 
+    /**
+     * Подсчёт активных заявок мастера.
+     */
     @Query("""
             select count(request)
             from ServiceRequest request

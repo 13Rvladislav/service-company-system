@@ -1,3 +1,4 @@
+
 package ru.servicecompany.requestservice.service;
 
 import lombok.RequiredArgsConstructor;
@@ -52,7 +53,6 @@ public class RequestService {
             );
         }
 
-        // Получаем адрес и оборудование через существующие Kafka-механизмы.
         AddressResponse address = getAddress(request.addressId());
 
         UserEquipmentResponse equipment = getEquipment(
@@ -74,7 +74,6 @@ public class RequestService {
             );
         }
 
-        // Создаём заявку.
         ServiceRequest serviceRequest = new ServiceRequest();
 
         serviceRequest.setClientId(clientId);
@@ -93,19 +92,19 @@ public class RequestService {
                 request.preferredVisitAt()
         );
 
-        // Получаем мастеров по зоне и специализации.
-        List<UUID> masterIds = masterAssignmentCandidatesRequestService
-                .getCandidates(
+        List<UUID> masterIds =
+                masterAssignmentCandidatesRequestService.getCandidates(
                         address.zoneId(),
                         equipment.getEquipmentTypeId()
                 );
 
-        // Выбираем мастера с минимальной активной нагрузкой.
         UUID masterId = selectMasterWithLowestLoad(masterIds);
 
         if (masterId == null) {
             serviceRequest.setMasterId(null);
-            serviceRequest.setStatus(RequestStatus.WAITING_FOR_ASSIGNMENT);
+            serviceRequest.setStatus(
+                    RequestStatus.WAITING_FOR_ASSIGNMENT
+            );
         } else {
             serviceRequest.setMasterId(masterId);
             serviceRequest.setStatus(RequestStatus.ASSIGNED);
@@ -117,9 +116,11 @@ public class RequestService {
     }
 
     /**
-     * Получение подробной карточки заявки.
-     * Клиент видит только свои заявки.
-     * Диспетчер и администратор могут просматривать заявки любых клиентов.
+     * Подробная карточка заявки.
+     *
+     * CLIENT: только собственная заявка.
+     * ENGINEER: только заявка, назначенная текущему мастеру.
+     * DISPATCHER и ADMIN: любая заявка.
      */
     @Transactional(readOnly = true)
     public RequestDetailsResponse getRequestDetails(
@@ -129,7 +130,6 @@ public class RequestService {
     ) {
         ServiceRequest request;
 
-        // Клиент может просматривать только собственные заявки.
         if ("CLIENT".equals(role)) {
             request = serviceRequestRepository
                     .findByIdAndClientId(requestId, userId)
@@ -137,16 +137,24 @@ public class RequestService {
                             HttpStatus.NOT_FOUND,
                             "Заявка не найдена"
                     ));
+
+        } else if ("ENGINEER".equals(role)) {
+            request = serviceRequestRepository
+                    .findByIdAndMasterId(requestId, userId)
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Заявка не найдена или не назначена вам"
+                    ));
+
         } else if ("DISPATCHER".equals(role)
                 || "ADMIN".equals(role)) {
-
-            // Диспетчер и администратор могут просматривать любую заявку.
             request = serviceRequestRepository
                     .findById(requestId)
                     .orElseThrow(() -> new ApiException(
                             HttpStatus.NOT_FOUND,
                             "Заявка не найдена"
                     ));
+
         } else {
             throw new ApiException(
                     HttpStatus.FORBIDDEN,
@@ -154,12 +162,11 @@ public class RequestService {
             );
         }
 
-        // Получаем адрес через существующий Kafka-механизм.
         AddressResponse address = getAddress(
                 request.getAddressId()
         );
 
-        // Номер квартиры берём именно из карточки заявки.
+        // Квартира берётся из заявки, а не из профиля клиента.
         if (address != null) {
             address = new AddressResponse(
                     address.cityId(),
@@ -173,13 +180,11 @@ public class RequestService {
             );
         }
 
-        // Получаем оборудование по clientId самой заявки.
         UserEquipmentResponse equipment = getEquipment(
                 request.getClientId(),
                 request.getEquipmentId()
         );
 
-        // Получаем назначенного мастера.
         MasterResponse master = null;
 
         if (request.getMasterId() != null) {
@@ -188,7 +193,6 @@ public class RequestService {
             );
         }
 
-        // Получаем профиль клиента, создавшего заявку.
         ProfileResponseEvent clientProfile =
                 profileRequestService.getProfile(
                         request.getClientId(),
@@ -223,7 +227,7 @@ public class RequestService {
     }
 
     /**
-     * Получение адреса по ID через существующий Kafka-механизм.
+     * Получение адреса через существующий Kafka-механизм.
      */
     private AddressResponse getAddress(UUID addressId) {
         if (addressId == null) {
@@ -234,7 +238,7 @@ public class RequestService {
     }
 
     /**
-     * Получение оборудования по ID через существующий Kafka-механизм.
+     * Получение оборудования через существующий Kafka-механизм.
      */
     private UserEquipmentResponse getEquipment(
             UUID clientId,
@@ -311,7 +315,7 @@ public class RequestService {
     }
 
     /**
-     * Получение списка заявок клиента.
+     * Список заявок клиента.
      */
     @Transactional(readOnly = true)
     public List<MyRequestResponse> getMyRequests(UUID clientId) {
@@ -324,6 +328,113 @@ public class RequestService {
                         request.getStatus()
                 ))
                 .toList();
+    }
+
+    /**
+     * Список заявок, назначенных текущему мастеру.
+     *
+     * В список попадают его заявки, которые назначены,
+     * находятся в работе или ожидают последующих действий.
+     */
+    @Transactional(readOnly = true)
+    public List<ManagementRequestResponse> getMasterRequests(UUID masterId) {
+        System.out.println("MASTER ID FROM JWT: " + masterId);
+
+        List<ServiceRequest> requests =
+                serviceRequestRepository.findAllByMasterId(masterId);
+
+        System.out.println("REQUESTS FOUND BY MASTER ID: " + requests.size());
+
+        requests.forEach(request -> System.out.println(
+                "REQUEST ID: " + request.getId()
+                        + ", MASTER ID IN DB: " + request.getMasterId()
+                        + ", STATUS: " + request.getStatus()
+        ));
+
+        return requests.stream()
+                .filter(request ->
+                        request.getStatus() == RequestStatus.ASSIGNED
+                                || request.getStatus() == RequestStatus.IN_PROGRESS
+                                || request.getStatus() == RequestStatus.REPORT_SUBMITTED
+                                || request.getStatus() == RequestStatus.REVISION_REQUIRED
+                )
+                .map(request -> new ManagementRequestResponse(
+                        request.getId(),
+                        request.getCreatedAt(),
+                        request.getStatus()
+                ))
+                .toList();
+    }
+
+    /**
+     * Принятие заявки мастером.
+     *
+     * Разрешено только назначенному мастеру
+     * и только при статусе ASSIGNED.
+     *
+     * После принятия статус становится IN_PROGRESS.
+     */
+    @Transactional
+    public RequestResponse acceptAssignedRequest(
+            UUID masterId,
+            UUID requestId
+    ) {
+        ServiceRequest request = getRequestForUpdate(requestId);
+
+        checkAssignedMasterAndStatus(request, masterId);
+
+        request.setStatus(RequestStatus.IN_PROGRESS);
+
+        return toResponse(
+                serviceRequestRepository.save(request)
+        );
+    }
+
+    /**
+     * Отклонение назначения мастером.
+     *
+     * Автоматически другого мастера не назначаем.
+     * Очищаем masterId и переводим заявку в WAITING_FOR_ASSIGNMENT.
+     */
+    @Transactional
+    public RequestResponse rejectAssignedRequest(
+            UUID masterId,
+            UUID requestId
+    ) {
+        ServiceRequest request = getRequestForUpdate(requestId);
+
+        checkAssignedMasterAndStatus(request, masterId);
+
+        request.setMasterId(null);
+        request.setStatus(RequestStatus.WAITING_FOR_ASSIGNMENT);
+
+        return toResponse(
+                serviceRequestRepository.save(request)
+        );
+    }
+
+    /**
+     * Проверка, что заявка назначена текущему мастеру
+     * и всё ещё ожидает его решения.
+     */
+    private void checkAssignedMasterAndStatus(
+            ServiceRequest request,
+            UUID masterId
+    ) {
+        if (masterId == null
+                || !masterId.equals(request.getMasterId())) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "Заявка не назначена текущему мастеру"
+            );
+        }
+
+        if (request.getStatus() != RequestStatus.ASSIGNED) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Решение можно принять только по заявке со статусом ASSIGNED"
+            );
+        }
     }
 
     /**
@@ -368,7 +479,6 @@ public class RequestService {
 
     /**
      * Отмена заявки клиентом.
-     * Разрешено до принятия заявки мастером.
      */
     @Transactional
     public RequestResponse cancelRequest(
@@ -388,7 +498,7 @@ public class RequestService {
     }
 
     /**
-     * Получение заявки с блокировкой для изменения.
+     * Получение заявки с блокировкой на изменение.
      */
     private ServiceRequest getRequestForUpdate(UUID requestId) {
         return serviceRequestRepository
@@ -467,7 +577,8 @@ public class RequestService {
 
         for (UUID masterId : masterIds) {
             long activeRequests =
-                    serviceRequestRepository.countActiveRequestsByMasterId(masterId);
+                    serviceRequestRepository
+                            .countActiveRequestsByMasterId(masterId);
 
             if (activeRequests < minLoad) {
                 minLoad = activeRequests;
@@ -480,7 +591,6 @@ public class RequestService {
 
     /**
      * Отмена заявки диспетчером или администратором.
-     * Разрешена на любом этапе выполнения заявки.
      */
     @Transactional
     public RequestResponse cancelRequestByAdmin(UUID requestId) {
@@ -494,7 +604,7 @@ public class RequestService {
     }
 
     /**
-     * Получение списка заявок для диспетчера и администратора.
+     * Список заявок для диспетчера и администратора.
      */
     @Transactional(readOnly = true)
     public List<ManagementRequestResponse> getManagementRequests() {
@@ -503,7 +613,9 @@ public class RequestService {
                 .stream()
                 .sorted(
                         Comparator.comparingInt(
-                                request -> getManagementPriority(request.getStatus())
+                                request -> getManagementPriority(
+                                        request.getStatus()
+                                )
                         )
                 )
                 .map(request -> new ManagementRequestResponse(
@@ -530,7 +642,7 @@ public class RequestService {
     }
 
     /**
-     * Назначение или переназначение мастера.
+     * Ручное назначение или переназначение мастера.
      */
     @Transactional
     public RequestResponse assignMaster(
@@ -582,7 +694,6 @@ public class RequestService {
             );
         }
 
-        // При переназначении заменяем предыдущего мастера.
         request.setMasterId(masterId);
         request.setStatus(RequestStatus.ASSIGNED);
 
