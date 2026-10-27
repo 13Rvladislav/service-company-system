@@ -1,8 +1,8 @@
-
 package ru.servicecompany.requestservice.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -25,6 +26,15 @@ public class GlobalExceptionHandler {
             ApiException exception,
             HttpServletRequest request
     ) {
+        log.warn(
+                "API error: method={}, path={}, status={}, message={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception.getStatus(),
+                exception.getMessage(),
+                exception
+        );
+
         return buildResponse(
                 exception.getStatus(),
                 exception.getMessage(),
@@ -51,6 +61,13 @@ public class GlobalExceptionHandler {
             );
         }
 
+        log.warn(
+                "Validation error: method={}, path={}, errors={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                errors
+        );
+
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Ошибка валидации входных данных",
@@ -64,6 +81,13 @@ public class GlobalExceptionHandler {
             ConstraintViolationException exception,
             HttpServletRequest request
     ) {
+        log.warn(
+                "Constraint violation: method={}, path={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception
+        );
+
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Нарушены ограничения входных данных",
@@ -77,6 +101,13 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException exception,
             HttpServletRequest request
     ) {
+        log.warn(
+                "Invalid request body: method={}, path={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception
+        );
+
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Некорректный формат тела запроса",
@@ -90,6 +121,13 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException exception,
             HttpServletRequest request
     ) {
+        log.error(
+                "Database constraint violation: method={}, path={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception
+        );
+
         return buildResponse(
                 HttpStatus.CONFLICT,
                 "Операция нарушает ограничения базы данных",
@@ -103,7 +141,14 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
-        // Полную информацию об исключении следует записывать в серверный лог.
+        log.error(
+                "UNEXPECTED ERROR: method={}, path={}, query={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                request.getQueryString(),
+                exception
+        );
+
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "Внутренняя ошибка сервера",

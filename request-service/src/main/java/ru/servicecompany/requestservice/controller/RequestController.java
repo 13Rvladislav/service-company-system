@@ -122,7 +122,7 @@ public class RequestController {
     /**
      * Данные для формы создания заявки.
      */
-    @GetMapping("/form-data")
+    @GetMapping("/create-form")
     public CreateRequestFormResponse getCreateForm(
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
