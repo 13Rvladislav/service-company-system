@@ -1,7 +1,6 @@
 
 package ru.servicecompany.requestservice.controller;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ContentDisposition;
@@ -16,10 +15,12 @@ import org.springframework.web.multipart.MultipartFile;
 import ru.servicecompany.requestservice.config.JwtUserPrincipal;
 import ru.servicecompany.requestservice.dto.request.SaveWorkReportRequest;
 import ru.servicecompany.requestservice.dto.response.WorkReportAttachmentResponse;
+import ru.servicecompany.requestservice.dto.response.WorkReportLookupResponse;
 import ru.servicecompany.requestservice.dto.response.WorkReportResponse;
 import ru.servicecompany.requestservice.service.WorkReportService;
 import ru.servicecompany.requestservice.service.WorkReportService.DownloadedReportFile;
 
+import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
@@ -30,26 +31,20 @@ public class WorkReportController {
 
     private final WorkReportService workReportService;
 
-    /*
-     * Просмотр отчёта.
-     */
     @GetMapping
-    public WorkReportResponse getReport(
+    public WorkReportLookupResponse getReport(
             @AuthenticationPrincipal JwtUserPrincipal principal,
             @PathVariable UUID requestId
     ) {
         requireAuthenticated(principal);
 
-        return workReportService.getReport(
+        return workReportService.getReportIfExists(
                 principal.userId(),
                 principal.role(),
                 requestId
         );
     }
 
-    /*
-     * Создание или обновление черновика.
-     */
     @PutMapping
     public WorkReportResponse saveDraft(
             @AuthenticationPrincipal JwtUserPrincipal principal,
@@ -66,9 +61,6 @@ public class WorkReportController {
         );
     }
 
-    /*
-     * Отправка отчёта клиенту.
-     */
     @PostMapping("/submit")
     public WorkReportResponse submitReport(
             @AuthenticationPrincipal JwtUserPrincipal principal,
@@ -83,10 +75,6 @@ public class WorkReportController {
         );
     }
 
-    /*
-     * Загрузка вложения в PostgreSQL.
-     * Имя multipart-поля: file.
-     */
     @PostMapping(
             value = "/attachments",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
@@ -106,9 +94,23 @@ public class WorkReportController {
         );
     }
 
-    /*
-     * Скачивание вложения из PostgreSQL.
-     */
+    @DeleteMapping("/attachments/{attachmentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAttachment(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable UUID requestId,
+            @PathVariable UUID attachmentId
+    ) {
+        requireAuthenticated(principal);
+
+        workReportService.deleteAttachment(
+                principal.userId(),
+                principal.role(),
+                requestId,
+                attachmentId
+        );
+    }
+
     @GetMapping("/attachments/{attachmentId}")
     public ResponseEntity<ByteArrayResource> downloadAttachment(
             @AuthenticationPrincipal JwtUserPrincipal principal,
@@ -137,8 +139,7 @@ public class WorkReportController {
                 .filename(file.fileName(), StandardCharsets.UTF_8)
                 .build();
 
-        return ResponseEntity
-                .status(HttpStatus.OK)
+        return ResponseEntity.ok()
                 .contentType(mediaType)
                 .contentLength(file.content().length)
                 .header(

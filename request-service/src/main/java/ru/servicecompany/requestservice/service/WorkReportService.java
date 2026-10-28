@@ -8,11 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.dto.request.SaveWorkReportRequest;
-import ru.servicecompany.requestservice.dto.response.AddressResponse;
-import ru.servicecompany.requestservice.dto.response.RequestDetailsResponse;
-import ru.servicecompany.requestservice.dto.response.UserEquipmentResponse;
-import ru.servicecompany.requestservice.dto.response.WorkReportAttachmentResponse;
-import ru.servicecompany.requestservice.dto.response.WorkReportResponse;
+import ru.servicecompany.requestservice.dto.response.*;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
 import ru.servicecompany.requestservice.entity.WorkReport;
 import ru.servicecompany.requestservice.entity.WorkReportAttachment;
@@ -90,10 +86,11 @@ public class WorkReportService {
     }
 
     /**
-     * Получение отчёта.
+     * Получение отчёта без 404, если отчёт ещё не создан.
+     * Сам GET не создаёт запись в базе данных.
      */
     @Transactional(readOnly = true)
-    public WorkReportResponse getReport(
+    public WorkReportLookupResponse getReportIfExists(
             UUID userId,
             String role,
             UUID requestId
@@ -101,17 +98,61 @@ public class WorkReportService {
         ServiceRequest request = getRequest(requestId);
         checkCanViewRequest(userId, role, request);
 
-        WorkReport report = workReportRepository.findByRequestId(requestId)
+        return workReportRepository.findByRequestId(requestId)
+                .map(report -> {
+                    checkClientReportVisibility(role, report);
+
+                    return WorkReportLookupResponse.exists(
+                            toResponse(report)
+                    );
+                })
+                .orElseGet(WorkReportLookupResponse::notExists);
+    }
+    /**
+     * Удаление вложения из черновика отчёта.
+     * Удалять вложения может только назначенный мастер,
+     * пока отчёт не отправлен.
+     */
+    @Transactional
+    public void deleteAttachment(
+            UUID userId,
+            String role,
+            UUID requestId,
+            UUID attachmentId
+    ) {
+        requireRole(role, "ENGINEER");
+
+        ServiceRequest request = getRequestForUpdate(requestId);
+        requireAssignedMaster(request, userId);
+        requireReportEditable(request);
+
+        WorkReport report = workReportRepository
+                .findByRequestIdForUpdate(requestId)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
-                        "Отчёт по заявке ещё не создан"
+                        "Отчёт по заявке не найден"
                 ));
 
-        checkClientReportVisibility(role, report);
+        if (report.getStatus() != WorkReportStatus.DRAFT) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Нельзя удалять вложения из отправленного отчёта"
+            );
+        }
 
-        return toResponse(report);
+        WorkReportAttachment attachment =
+                workReportAttachmentRepository
+                        .findByIdAndReportId(
+                                attachmentId,
+                                report.getId()
+                        )
+                        .orElseThrow(() -> new ApiException(
+                                HttpStatus.NOT_FOUND,
+                                "Вложение не найдено в этом отчёте"
+                        ));
+
+        workReportAttachmentRepository.delete(attachment);
     }
-
     /**
      * Отправка отчёта после выполнения работ.
      * Заявка переходит в REPORT_SUBMITTED.
