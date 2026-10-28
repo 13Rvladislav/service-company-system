@@ -89,7 +89,7 @@ public class SecurityConfig {
                                 "/api/requests/*/cancel"
                         ).hasRole("CLIENT")
 
-                        // Ручное назначение или переназначение мастера.
+                        // Ручное назначение мастера.
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/requests/*/assign"
@@ -107,11 +107,51 @@ public class SecurityConfig {
                                 "/api/requests/all"
                         ).hasAnyRole("DISPATCHER", "ADMIN")
 
-                        // Кандидаты для ручного назначения.
+                        // Кандидаты для назначения мастера.
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/requests/*/assignment-candidates"
                         ).hasAnyRole("DISPATCHER", "ADMIN")
+
+                        // Просмотр отчёта.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/requests/*/report"
+                        ).hasAnyRole(
+                                "CLIENT",
+                                "ENGINEER",
+                                "DISPATCHER",
+                                "ADMIN"
+                        )
+
+                        // Скачивание вложения отчёта.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/requests/*/report/attachments/*"
+                        ).hasAnyRole(
+                                "CLIENT",
+                                "ENGINEER",
+                                "DISPATCHER",
+                                "ADMIN"
+                        )
+
+                        // Сохранение черновика мастером.
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/requests/*/report"
+                        ).hasRole("ENGINEER")
+
+                        // Отправка отчёта мастером.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/requests/*/report/submit"
+                        ).hasRole("ENGINEER")
+
+                        // Загрузка вложения мастером.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/requests/*/report/attachments"
+                        ).hasRole("ENGINEER")
 
                         .anyRequest().authenticated()
                 )

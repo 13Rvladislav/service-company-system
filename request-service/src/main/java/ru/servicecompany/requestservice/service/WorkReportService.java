@@ -6,7 +6,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.dto.request.SaveWorkReportRequest;
+import ru.servicecompany.requestservice.dto.response.AddressResponse;
+import ru.servicecompany.requestservice.dto.response.RequestDetailsResponse;
+import ru.servicecompany.requestservice.dto.response.UserEquipmentResponse;
 import ru.servicecompany.requestservice.dto.response.WorkReportAttachmentResponse;
 import ru.servicecompany.requestservice.dto.response.WorkReportResponse;
 import ru.servicecompany.requestservice.entity.ServiceRequest;
@@ -14,7 +18,6 @@ import ru.servicecompany.requestservice.entity.WorkReport;
 import ru.servicecompany.requestservice.entity.WorkReportAttachment;
 import ru.servicecompany.requestservice.enums.RequestStatus;
 import ru.servicecompany.requestservice.enums.WorkReportStatus;
-import ru.servicecompany.requestservice.common.exception.ApiException;
 import ru.servicecompany.requestservice.repository.ServiceRequestRepository;
 import ru.servicecompany.requestservice.repository.WorkReportAttachmentRepository;
 import ru.servicecompany.requestservice.repository.WorkReportRepository;
@@ -43,9 +46,10 @@ public class WorkReportService {
     private final WorkReportRepository workReportRepository;
     private final WorkReportAttachmentRepository workReportAttachmentRepository;
     private final ServiceRequestRepository serviceRequestRepository;
+    private final RequestService requestService;
 
-    /*
-     * Сохранение черновика отчёта мастера.
+    /**
+     * Создание или сохранение черновика отчёта мастера.
      */
     @Transactional
     public WorkReportResponse saveDraft(
@@ -62,34 +66,31 @@ public class WorkReportService {
 
         WorkReport report = workReportRepository
                 .findByRequestIdForUpdate(requestId)
-                .orElseGet(() -> createDraft(request));
+                .orElseGet(() -> createDraft(request, userId, role));
 
-        if (report.getStatus() != WorkReportStatus.DRAFT
-                && report.getStatus() != WorkReportStatus.REWORK_REQUESTED) {
+        if (report.getStatus() != WorkReportStatus.DRAFT) {
             throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
+                    HttpStatus.CONFLICT,
                     "Отправленный отчёт нельзя редактировать"
             );
         }
 
         report.setDiagnosis(input.diagnosis().trim());
-        report.setFailureCause(input.failureCause());
+        report.setFailureCause(normalize(input.failureCause()));
         report.setPerformedWork(input.performedWork().trim());
         report.setWorkResult(input.workResult().trim());
-        report.setRecommendations(input.recommendations());
-        report.setMasterComment(input.masterComment());
+        report.setRecommendations(normalize(input.recommendations()));
+        report.setMasterComment(normalize(input.masterComment()));
 
         if (input.completedAt() != null) {
             report.setCompletedAt(input.completedAt());
         }
 
-        report.setStatus(WorkReportStatus.DRAFT);
-
         return toResponse(workReportRepository.save(report));
     }
 
-    /*
-     * Просмотр отчёта.
+    /**
+     * Получение отчёта.
      */
     @Transactional(readOnly = true)
     public WorkReportResponse getReport(
@@ -111,8 +112,9 @@ public class WorkReportService {
         return toResponse(report);
     }
 
-    /*
-     * Отправка отчёта клиенту.
+    /**
+     * Отправка отчёта после выполнения работ.
+     * Заявка переходит в REPORT_SUBMITTED.
      */
     @Transactional
     public WorkReportResponse submitReport(
@@ -130,12 +132,12 @@ public class WorkReportService {
                 .findByRequestIdForUpdate(requestId)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.BAD_REQUEST,
-                        "Сначала создайте отчёт"
+                        "Сначала сохраните черновик отчёта"
                 ));
 
         if (report.getStatus() != WorkReportStatus.DRAFT) {
             throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
+                    HttpStatus.CONFLICT,
                     "Отчёт уже отправлен или не может быть отправлен"
             );
         }
@@ -164,8 +166,8 @@ public class WorkReportService {
         return toResponse(saved);
     }
 
-    /*
-     * Загрузка файла непосредственно в PostgreSQL (BYTEA).
+    /**
+     * Загрузка вложения в PostgreSQL.
      */
     @Transactional
     public WorkReportAttachmentResponse uploadAttachment(
@@ -221,7 +223,7 @@ public class WorkReportService {
 
         if (report.getStatus() != WorkReportStatus.DRAFT) {
             throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
+                    HttpStatus.CONFLICT,
                     "Нельзя добавлять файлы к отправленному отчёту"
             );
         }
@@ -268,8 +270,8 @@ public class WorkReportService {
         }
     }
 
-    /*
-     * Скачивание файла из PostgreSQL.
+    /**
+     * Скачивание вложения из PostgreSQL.
      */
     @Transactional(readOnly = true)
     public DownloadedReportFile downloadAttachment(
@@ -304,21 +306,133 @@ public class WorkReportService {
         );
     }
 
-    private WorkReport createDraft(ServiceRequest request) {
+    /**
+     * Создаёт черновик и сохраняет снимки исходных данных заявки.
+     */
+    private WorkReport createDraft(
+            ServiceRequest request,
+            UUID userId,
+            String role
+    ) {
+        RequestDetailsResponse details = requestService.getRequestDetails(
+                userId,
+                role,
+                request.getId()
+        );
+
         WorkReport report = new WorkReport();
 
         report.setRequestId(request.getId());
         report.setMasterId(request.getMasterId());
-        report.setProblemSnapshot(request.getProblemDescription());
-        report.setEquipmentSnapshot("");
-        report.setAddressSnapshot("");
 
+        report.setProblemSnapshot(firstNonBlank(
+                details.problemDescription(),
+                request.getProblemDescription(),
+                "Описание проблемы отсутствует"
+        ));
+
+        report.setEquipmentSnapshot(
+                buildEquipmentSnapshot(details.equipment())
+        );
+
+        report.setAddressSnapshot(
+                buildAddressSnapshot(details)
+        );
+
+        // Обязательные поля для первоначального черновика.
         report.setDiagnosis("");
         report.setPerformedWork("");
         report.setWorkResult("");
         report.setStatus(WorkReportStatus.DRAFT);
 
         return report;
+    }
+
+    private String buildEquipmentSnapshot(UserEquipmentResponse equipment) {
+        if (equipment == null) {
+            return "Информация об оборудовании отсутствует";
+        }
+
+        String result = String.join(
+                " ",
+                nonBlank(equipment.getEquipmentTypeName()),
+                nonBlank(equipment.getManufacturer()),
+                nonBlank(equipment.getModel())
+        ).trim();
+
+        if (result.isBlank()) {
+            result = nonBlank(equipment.getDescription());
+        }
+
+        return result.isBlank()
+                ? "Информация об оборудовании отсутствует"
+                : result;
+    }
+
+    private String buildAddressSnapshot(RequestDetailsResponse details) {
+        AddressResponse address = details.address();
+
+        if (address == null) {
+            return "Адрес заявки не указан";
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        appendPart(result, address.cityName());
+        appendPart(result, address.streetName());
+
+        if (address.houseNumber() != null
+                && !address.houseNumber().isBlank()) {
+            appendPart(result, "д. " + address.houseNumber().trim());
+        }
+
+        // Приоритет у квартиры, сохранённой в заявке.
+        String apartment = firstNonBlank(
+                details.apartment(),
+                address.apartment()
+        );
+
+        if (apartment != null) {
+            appendPart(result, "кв. " + apartment);
+        }
+
+        return result.isEmpty()
+                ? "Адрес заявки не указан"
+                : result.toString();
+    }
+
+    private void appendPart(StringBuilder result, String part) {
+        if (part == null || part.isBlank()) {
+            return;
+        }
+
+        if (!result.isEmpty()) {
+            result.append(", ");
+        }
+
+        result.append(part.trim());
+    }
+
+    private String nonBlank(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+
+        return null;
+    }
+
+    private String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value.trim();
     }
 
     private ServiceRequest getRequest(UUID requestId) {
@@ -337,7 +451,10 @@ public class WorkReportService {
                 ));
     }
 
-    private void requireAssignedMaster(ServiceRequest request, UUID userId) {
+    private void requireAssignedMaster(
+            ServiceRequest request,
+            UUID userId
+    ) {
         if (request.getMasterId() == null
                 || !request.getMasterId().equals(userId)) {
             throw new ApiException(
@@ -348,11 +465,10 @@ public class WorkReportService {
     }
 
     private void requireReportEditable(ServiceRequest request) {
-        if (request.getStatus() != RequestStatus.IN_PROGRESS
-                && request.getStatus() != RequestStatus.REVISION_REQUIRED) {
+        if (request.getStatus() != RequestStatus.IN_PROGRESS) {
             throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "Отчёт можно редактировать только по заявке в работе или на доработке"
+                    HttpStatus.CONFLICT,
+                    "Отчёт можно редактировать только по заявке в работе"
             );
         }
     }
@@ -455,5 +571,6 @@ public class WorkReportService {
             String fileName,
             String contentType,
             byte[] content
-    ) {}
+    ) {
+    }
 }
