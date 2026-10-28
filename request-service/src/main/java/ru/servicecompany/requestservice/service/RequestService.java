@@ -30,6 +30,7 @@ public class RequestService {
     private final MasterAssignmentCandidatesRequestService
             masterAssignmentCandidatesRequestService;
     private final ProfileRequestService profileRequestService;
+    private final RequestStatusTransitionService requestStatusTransitionService;
 
     /**
      * Создание заявки клиентом с автоматическим назначением мастера.
@@ -117,7 +118,7 @@ public class RequestService {
 
     /**
      * Подробная карточка заявки.
-     *
+     * <p>
      * CLIENT: только собственная заявка.
      * ENGINEER: только заявка, назначенная текущему мастеру.
      * DISPATCHER и ADMIN: любая заявка.
@@ -332,7 +333,7 @@ public class RequestService {
 
     /**
      * Список заявок, назначенных текущему мастеру.
-     *
+     * <p>
      * В список попадают его заявки, которые назначены,
      * находятся в работе или ожидают последующих действий.
      */
@@ -368,10 +369,10 @@ public class RequestService {
 
     /**
      * Принятие заявки мастером.
-     *
+     * <p>
      * Разрешено только назначенному мастеру
      * и только при статусе ASSIGNED.
-     *
+     * <p>
      * После принятия статус становится IN_PROGRESS.
      */
     @Transactional
@@ -383,16 +384,19 @@ public class RequestService {
 
         checkAssignedMasterAndStatus(request, masterId);
 
-        request.setStatus(RequestStatus.IN_PROGRESS);
-
-        return toResponse(
-                serviceRequestRepository.save(request)
+        request.setStatus(
+                requestStatusTransitionService.transition(
+                        request.getStatus(),
+                        RequestStatus.IN_PROGRESS
+                )
         );
+
+        return toResponse(serviceRequestRepository.save(request));
     }
 
     /**
      * Отклонение назначения мастером.
-     *
+     * <p>
      * Автоматически другого мастера не назначаем.
      * Очищаем masterId и переводим заявку в WAITING_FOR_ASSIGNMENT.
      */
@@ -405,12 +409,16 @@ public class RequestService {
 
         checkAssignedMasterAndStatus(request, masterId);
 
-        request.setMasterId(null);
-        request.setStatus(RequestStatus.WAITING_FOR_ASSIGNMENT);
+        RequestStatus newStatus =
+                requestStatusTransitionService.transition(
+                        request.getStatus(),
+                        RequestStatus.WAITING_FOR_ASSIGNMENT
+                );
 
-        return toResponse(
-                serviceRequestRepository.save(request)
-        );
+        request.setMasterId(null);
+        request.setStatus(newStatus);
+
+        return toResponse(serviceRequestRepository.save(request));
     }
 
     /**
@@ -490,7 +498,12 @@ public class RequestService {
         checkOwner(request, clientId);
         checkCanBeChanged(request);
 
-        request.setStatus(RequestStatus.CANCELLED);
+        request.setStatus(
+                requestStatusTransitionService.transition(
+                        request.getStatus(),
+                        RequestStatus.CANCELLED
+                )
+        );
 
         return toResponse(
                 serviceRequestRepository.save(request)
@@ -626,20 +639,24 @@ public class RequestService {
                 .toList();
     }
 
+
+    /**
+     * Приоритет отображения заявок для диспетчера и администратора.
+     * Заявки, требующие оперативного действия, идут первыми.
+     */
     private int getManagementPriority(RequestStatus status) {
         return switch (status) {
             case WAITING_FOR_ASSIGNMENT -> 0;
             case ASSIGNED -> 1;
-            case REJECTED -> 2;
-            case NEW -> 3;
-            case ACCEPTED -> 4;
-            case IN_PROGRESS -> 5;
-            case REPORT_SUBMITTED -> 6;
-            case REVISION_REQUIRED -> 7;
-            case COMPLETED -> 8;
-            case CANCELLED -> 9;
+            case NEW -> 2;
+            case REVISION_REQUIRED -> 3;
+            case IN_PROGRESS -> 4;
+            case REPORT_SUBMITTED -> 5;
+            case COMPLETED -> 6;
+            case CANCELLED -> 7;
         };
     }
+
 
     /**
      * Ручное назначение или переназначение мастера.

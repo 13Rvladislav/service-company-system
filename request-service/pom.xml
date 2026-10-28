@@ -24,6 +24,13 @@
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
+        <!-- Генерация PDF из HTML/CSS -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>1.0.10</version>
+        </dependency>
+
         <!-- Работа с PostgreSQL через JPA -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

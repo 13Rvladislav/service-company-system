@@ -38,11 +38,12 @@ public class WorkReportService {
             "image/webp",
             "application/pdf"
     );
-
+    private final RequestStatusTransitionService requestStatusTransitionService;
     private final WorkReportRepository workReportRepository;
     private final WorkReportAttachmentRepository workReportAttachmentRepository;
     private final ServiceRequestRepository serviceRequestRepository;
     private final RequestService requestService;
+    private final WorkReportPdfService workReportPdfService;
 
     /**
      * Создание или сохранение черновика отчёта мастера.
@@ -108,6 +109,7 @@ public class WorkReportService {
                 })
                 .orElseGet(WorkReportLookupResponse::notExists);
     }
+
     /**
      * Удаление вложения из черновика отчёта.
      * Удалять вложения может только назначенный мастер,
@@ -153,6 +155,7 @@ public class WorkReportService {
 
         workReportAttachmentRepository.delete(attachment);
     }
+
     /**
      * Отправка отчёта после выполнения работ.
      * Заявка переходит в REPORT_SUBMITTED.
@@ -199,7 +202,12 @@ public class WorkReportService {
         report.setStatus(WorkReportStatus.SUBMITTED);
         report.setSubmittedAt(LocalDateTime.now());
 
-        request.setStatus(RequestStatus.REPORT_SUBMITTED);
+        request.setStatus(
+                requestStatusTransitionService.transition(
+                        request.getStatus(),
+                        RequestStatus.REPORT_SUBMITTED
+                )
+        );
 
         serviceRequestRepository.save(request);
         WorkReport saved = workReportRepository.save(report);
@@ -611,6 +619,59 @@ public class WorkReportService {
     public record DownloadedReportFile(
             String fileName,
             String contentType,
+            byte[] content
+    ) {
+    }
+
+    /**
+     * Формирование PDF-отчёта по конкретной заявке.
+     */
+    @Transactional(readOnly = true)
+    public PdfReportFile downloadPdf(
+            UUID userId,
+            String role,
+            UUID requestId
+    ) {
+        ServiceRequest request = getRequest(requestId);
+
+        checkCanViewRequest(userId, role, request);
+
+        WorkReport report = workReportRepository
+                .findByRequestId(requestId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Отчёт по заявке ещё не создан"
+                ));
+
+        checkClientReportVisibility(role, report);
+
+        if (report.getStatus() == WorkReportStatus.DRAFT) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Нельзя скачать PDF: отчёт ещё не отправлен"
+            );
+        }
+
+        RequestDetailsResponse details =
+                requestService.getRequestDetails(
+                        userId,
+                        role,
+                        requestId
+                );
+
+        byte[] pdf = workReportPdfService.generate(details, report);
+
+        return new PdfReportFile(
+                "request-report-" + requestId + ".pdf",
+                pdf
+        );
+    }
+
+    /**
+     * Готовый PDF-документ.
+     */
+    public record PdfReportFile(
+            String fileName,
             byte[] content
     ) {
     }

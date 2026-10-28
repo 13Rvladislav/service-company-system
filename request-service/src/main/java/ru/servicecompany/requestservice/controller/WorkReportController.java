@@ -21,6 +21,7 @@ import ru.servicecompany.requestservice.service.WorkReportService;
 import ru.servicecompany.requestservice.service.WorkReportService.DownloadedReportFile;
 
 import jakarta.validation.Valid;
+
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
@@ -141,6 +142,36 @@ public class WorkReportController {
 
         return ResponseEntity.ok()
                 .contentType(mediaType)
+                .contentLength(file.content().length)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        disposition.toString()
+                )
+                .body(new ByteArrayResource(file.content()));
+    }
+
+    /**
+     * Скачать PDF-отчёт по конкретной заявке.
+     */
+    @GetMapping("/pdf")
+    public ResponseEntity<ByteArrayResource> downloadPdf(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable UUID requestId
+    ) {
+        requireAuthenticated(principal);
+
+        WorkReportService.PdfReportFile file = workReportService.downloadPdf(
+                principal.userId(),
+                principal.role(),
+                requestId
+        );
+
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(file.fileName(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
                 .contentLength(file.content().length)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
