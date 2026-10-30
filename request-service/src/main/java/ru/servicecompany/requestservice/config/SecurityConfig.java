@@ -1,4 +1,3 @@
-
 package ru.servicecompany.requestservice.config;
 
 import lombok.RequiredArgsConstructor;
@@ -46,6 +45,12 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/actuator/health"
                         ).permitAll()
+
+                        // Аналитика.
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/analytics"
+                        ).hasAnyRole("DISPATCHER", "ADMIN")
 
                         // Создание заявки клиентом.
                         .requestMatchers(

@@ -79,6 +79,7 @@ public class RequestService {
 
         serviceRequest.setClientId(clientId);
         serviceRequest.setAddressId(request.addressId());
+        serviceRequest.setZoneId(address.zoneId());
         serviceRequest.setApartment(
                 normalizeApartment(request.apartment())
         );
