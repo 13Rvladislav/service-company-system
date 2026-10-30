@@ -1,3 +1,4 @@
+
 package ru.servicecompany.requestservice.dto.response;
 
 import ru.servicecompany.requestservice.enums.WorkReportStatus;
@@ -21,6 +22,7 @@ public record WorkReportResponse(
         String workResult,
         String recommendations,
         String masterComment,
+        String clientFeedback,
 
         LocalDateTime completedAt,
         WorkReportStatus status,

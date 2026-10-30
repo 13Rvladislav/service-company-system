@@ -1,6 +1,9 @@
 
 package ru.servicecompany.requestservice.controller;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ContentDisposition;
@@ -19,8 +22,6 @@ import ru.servicecompany.requestservice.dto.response.WorkReportLookupResponse;
 import ru.servicecompany.requestservice.dto.response.WorkReportResponse;
 import ru.servicecompany.requestservice.service.WorkReportService;
 import ru.servicecompany.requestservice.service.WorkReportService.DownloadedReportFile;
-
-import jakarta.validation.Valid;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -73,6 +74,36 @@ public class WorkReportController {
                 principal.userId(),
                 principal.role(),
                 requestId
+        );
+    }
+
+    @PostMapping("/accept")
+    public WorkReportResponse acceptWork(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable UUID requestId
+    ) {
+        requireAuthenticated(principal);
+
+        return workReportService.acceptWork(
+                principal.userId(),
+                principal.role(),
+                requestId
+        );
+    }
+
+    @PostMapping("/rework")
+    public WorkReportResponse requestRework(
+            @AuthenticationPrincipal JwtUserPrincipal principal,
+            @PathVariable UUID requestId,
+            @Valid @RequestBody ReworkRequest request
+    ) {
+        requireAuthenticated(principal);
+
+        return workReportService.requestRework(
+                principal.userId(),
+                principal.role(),
+                requestId,
+                request.reason()
         );
     }
 
@@ -150,9 +181,6 @@ public class WorkReportController {
                 .body(new ByteArrayResource(file.content()));
     }
 
-    /**
-     * Скачать PDF-отчёт по конкретной заявке.
-     */
     @GetMapping("/pdf")
     public ResponseEntity<ByteArrayResource> downloadPdf(
             @AuthenticationPrincipal JwtUserPrincipal principal,
@@ -160,11 +188,12 @@ public class WorkReportController {
     ) {
         requireAuthenticated(principal);
 
-        WorkReportService.PdfReportFile file = workReportService.downloadPdf(
-                principal.userId(),
-                principal.role(),
-                requestId
-        );
+        WorkReportService.PdfReportFile file =
+                workReportService.downloadPdf(
+                        principal.userId(),
+                        principal.role(),
+                        requestId
+                );
 
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename(file.fileName(), StandardCharsets.UTF_8)
@@ -186,5 +215,15 @@ public class WorkReportController {
                     "Необходимо авторизоваться"
             );
         }
+    }
+
+    public record ReworkRequest(
+            @NotBlank(message = "Укажите причину доработки")
+            @Size(
+                    max = 5000,
+                    message = "Причина не должна превышать 5000 символов"
+            )
+            String reason
+    ) {
     }
 }

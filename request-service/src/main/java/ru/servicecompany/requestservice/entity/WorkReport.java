@@ -1,3 +1,4 @@
+
 package ru.servicecompany.requestservice.entity;
 
 import jakarta.persistence.*;
@@ -58,6 +59,9 @@ public class WorkReport {
 
     @Column(name = "master_comment", columnDefinition = "TEXT")
     private String masterComment;
+
+    @Column(name = "client_feedback", columnDefinition = "TEXT")
+    private String clientFeedback;
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;

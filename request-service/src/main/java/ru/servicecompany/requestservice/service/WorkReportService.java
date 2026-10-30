@@ -38,6 +38,7 @@ public class WorkReportService {
             "image/webp",
             "application/pdf"
     );
+
     private final RequestStatusTransitionService requestStatusTransitionService;
     private final WorkReportRepository workReportRepository;
     private final WorkReportAttachmentRepository workReportAttachmentRepository;
@@ -47,6 +48,8 @@ public class WorkReportService {
 
     /**
      * Создание или сохранение черновика отчёта мастера.
+     * Разрешено сохранять отчёт в статусах IN_PROGRESS
+     * и REVISION_REQUIRED.
      */
     @Transactional
     public WorkReportResponse saveDraft(
@@ -65,10 +68,11 @@ public class WorkReportService {
                 .findByRequestIdForUpdate(requestId)
                 .orElseGet(() -> createDraft(request, userId, role));
 
-        if (report.getStatus() != WorkReportStatus.DRAFT) {
+        if (report.getStatus() != WorkReportStatus.DRAFT
+                && report.getStatus() != WorkReportStatus.REWORK_REQUESTED) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
-                    "Отправленный отчёт нельзя редактировать"
+                    "Редактировать можно только черновик или отчёт, возвращённый на доработку"
             );
         }
 
@@ -79,6 +83,9 @@ public class WorkReportService {
         report.setRecommendations(normalize(input.recommendations()));
         report.setMasterComment(normalize(input.masterComment()));
 
+        // После начала редактирования возвращённый отчёт становится черновиком.
+        report.setStatus(WorkReportStatus.DRAFT);
+
         if (input.completedAt() != null) {
             report.setCompletedAt(input.completedAt());
         }
@@ -88,7 +95,7 @@ public class WorkReportService {
 
     /**
      * Получение отчёта без 404, если отчёт ещё не создан.
-     * Сам GET не создаёт запись в базе данных.
+     * GET не создаёт запись в базе данных.
      */
     @Transactional(readOnly = true)
     public WorkReportLookupResponse getReportIfExists(
@@ -102,18 +109,13 @@ public class WorkReportService {
         return workReportRepository.findByRequestId(requestId)
                 .map(report -> {
                     checkClientReportVisibility(role, report);
-
-                    return WorkReportLookupResponse.exists(
-                            toResponse(report)
-                    );
+                    return WorkReportLookupResponse.exists(toResponse(report));
                 })
                 .orElseGet(WorkReportLookupResponse::notExists);
     }
 
     /**
      * Удаление вложения из черновика отчёта.
-     * Удалять вложения может только назначенный мастер,
-     * пока отчёт не отправлен.
      */
     @Transactional
     public void deleteAttachment(
@@ -144,10 +146,7 @@ public class WorkReportService {
 
         WorkReportAttachment attachment =
                 workReportAttachmentRepository
-                        .findByIdAndReportId(
-                                attachmentId,
-                                report.getId()
-                        )
+                        .findByIdAndReportId(attachmentId, report.getId())
                         .orElseThrow(() -> new ApiException(
                                 HttpStatus.NOT_FOUND,
                                 "Вложение не найдено в этом отчёте"
@@ -157,8 +156,9 @@ public class WorkReportService {
     }
 
     /**
-     * Отправка отчёта после выполнения работ.
-     * Заявка переходит в REPORT_SUBMITTED.
+     * Отправка отчёта мастером.
+     * Поддерживает первоначальную отправку и повторную отправку
+     * после исправления замечаний клиента.
      */
     @Transactional
     public WorkReportResponse submitReport(
@@ -210,9 +210,114 @@ public class WorkReportService {
         );
 
         serviceRequestRepository.save(request);
-        WorkReport saved = workReportRepository.save(report);
 
-        return toResponse(saved);
+        return toResponse(workReportRepository.save(report));
+    }
+
+    /**
+     * Клиент принимает выполненные работы.
+     * Отчёт получает статус ACCEPTED, заявка — COMPLETED.
+     */
+    @Transactional
+    public WorkReportResponse acceptWork(
+            UUID userId,
+            String role,
+            UUID requestId
+    ) {
+        requireRole(role, "CLIENT");
+
+        ServiceRequest request = getRequestForUpdate(requestId);
+        requireClientOwnsRequest(request, userId);
+        requireSubmittedReportStatus(request);
+
+        WorkReport report = workReportRepository
+                .findByRequestIdForUpdate(requestId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Отчёт по заявке не найден"
+                ));
+
+        if (report.getStatus() != WorkReportStatus.SUBMITTED) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Отчёт не ожидает подтверждения клиента"
+            );
+        }
+
+        report.setStatus(WorkReportStatus.ACCEPTED);
+
+        request.setStatus(
+                requestStatusTransitionService.transition(
+                        request.getStatus(),
+                        RequestStatus.COMPLETED
+                )
+        );
+
+        serviceRequestRepository.save(request);
+
+        return toResponse(workReportRepository.save(report));
+    }
+
+    /**
+     * Клиент возвращает отчёт на доработку.
+     * Причина сохраняется в clientFeedback.
+     */
+    @Transactional
+    public WorkReportResponse requestRework(
+            UUID userId,
+            String role,
+            UUID requestId,
+            String reason
+    ) {
+        requireRole(role, "CLIENT");
+
+        if (reason == null || reason.isBlank()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Укажите причину возврата отчёта на доработку"
+            );
+        }
+
+        String normalizedReason = reason.trim();
+
+        if (normalizedReason.length() > 5000) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Причина доработки не должна превышать 5000 символов"
+            );
+        }
+
+        ServiceRequest request = getRequestForUpdate(requestId);
+        requireClientOwnsRequest(request, userId);
+        requireSubmittedReportStatus(request);
+
+        WorkReport report = workReportRepository
+                .findByRequestIdForUpdate(requestId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Отчёт по заявке не найден"
+                ));
+
+        if (report.getStatus() != WorkReportStatus.SUBMITTED) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Отчёт не ожидает проверки клиента"
+            );
+        }
+
+        report.setClientFeedback(normalizedReason);
+        report.setStatus(WorkReportStatus.REWORK_REQUESTED);
+
+        request.setStatus(
+                requestStatusTransitionService.transition(
+                        request.getStatus(),
+                        RequestStatus.REVISION_REQUIRED
+                )
+        );
+
+        serviceRequestRepository.save(request);
+
+        return toResponse(workReportRepository.save(report));
     }
 
     /**
@@ -356,7 +461,7 @@ public class WorkReportService {
     }
 
     /**
-     * Создаёт черновик и сохраняет снимки исходных данных заявки.
+     * Создание черновика с сохранением снимков исходных данных заявки.
      */
     private WorkReport createDraft(
             ServiceRequest request,
@@ -388,7 +493,6 @@ public class WorkReportService {
                 buildAddressSnapshot(details)
         );
 
-        // Обязательные поля для первоначального черновика.
         report.setDiagnosis("");
         report.setPerformedWork("");
         report.setWorkResult("");
@@ -435,7 +539,6 @@ public class WorkReportService {
             appendPart(result, "д. " + address.houseNumber().trim());
         }
 
-        // Приоритет у квартиры, сохранённой в заявке.
         String apartment = firstNonBlank(
                 details.apartment(),
                 address.apartment()
@@ -513,11 +616,34 @@ public class WorkReportService {
         }
     }
 
-    private void requireReportEditable(ServiceRequest request) {
-        if (request.getStatus() != RequestStatus.IN_PROGRESS) {
+    private void requireClientOwnsRequest(
+            ServiceRequest request,
+            UUID userId
+    ) {
+        if (request.getClientId() == null
+                || !request.getClientId().equals(userId)) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "Это заявка другого клиента"
+            );
+        }
+    }
+
+    private void requireSubmittedReportStatus(ServiceRequest request) {
+        if (request.getStatus() != RequestStatus.REPORT_SUBMITTED) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
-                    "Отчёт можно редактировать только по заявке в работе"
+                    "Операция доступна только после отправки отчёта мастером"
+            );
+        }
+    }
+
+    private void requireReportEditable(ServiceRequest request) {
+        if (request.getStatus() != RequestStatus.IN_PROGRESS
+                && request.getStatus() != RequestStatus.REVISION_REQUIRED) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Редактировать отчёт можно только во время выполнения работ или после возврата на доработку"
             );
         }
     }
@@ -537,12 +663,7 @@ public class WorkReportService {
             ServiceRequest request
     ) {
         if ("CLIENT".equals(role)) {
-            if (!request.getClientId().equals(userId)) {
-                throw new ApiException(
-                        HttpStatus.FORBIDDEN,
-                        "Это заявка другого клиента"
-                );
-            }
+            requireClientOwnsRequest(request, userId);
             return;
         }
 
@@ -603,6 +724,7 @@ public class WorkReportService {
                 report.getWorkResult(),
                 report.getRecommendations(),
                 report.getMasterComment(),
+                report.getClientFeedback(),
                 report.getCompletedAt(),
                 report.getStatus(),
                 report.getSubmittedAt(),
