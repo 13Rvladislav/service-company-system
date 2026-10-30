@@ -1,8 +1,11 @@
+
 package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import ru.servicecompany.auth.common.exception.ApiException;
@@ -242,6 +245,13 @@ public class AuthService {
                     "BUSINESS_EVENT event=EMPLOYEE_CREATION_FAILED reason=EMAIL_ALREADY_EXISTS"
             );
 
+            logUserManagementAudit(
+                    "EMPLOYEE_CREATED",
+                    null,
+                    AuditResult.FAILURE,
+                    "reason=EMAIL_ALREADY_EXISTS"
+            );
+
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким Email уже существует"
@@ -252,6 +262,13 @@ public class AuthService {
 
             log.warn(
                     "BUSINESS_EVENT event=EMPLOYEE_CREATION_FAILED reason=PHONE_ALREADY_EXISTS"
+            );
+
+            logUserManagementAudit(
+                    "EMPLOYEE_CREATED",
+                    null,
+                    AuditResult.FAILURE,
+                    "reason=PHONE_ALREADY_EXISTS"
             );
 
             throw new ApiException(
@@ -294,6 +311,13 @@ public class AuthService {
                     role.getName()
             );
 
+            logUserManagementAudit(
+                    "EMPLOYEE_CREATED",
+                    user.getId(),
+                    AuditResult.FAILURE,
+                    "reason=PROFILE_CREATION_ERROR"
+            );
+
             throw e;
         }
 
@@ -301,6 +325,13 @@ public class AuthService {
                 "BUSINESS_EVENT event=EMPLOYEE_CREATED userId={} role={}",
                 user.getId(),
                 role.getName()
+        );
+
+        logUserManagementAudit(
+                "EMPLOYEE_CREATED",
+                user.getId(),
+                AuditResult.SUCCESS,
+                "role=" + role.getName().name()
         );
 
         return new CreateEmployeeResponse(
@@ -457,6 +488,14 @@ public class AuthService {
                 enabled
         );
 
+        logUserManagementAudit(
+                "USER_ACCOUNT_STATUS_CHANGED",
+                user.getId(),
+                AuditResult.SUCCESS,
+                "previousEnabled=" + previousEnabled
+                        + "; newEnabled=" + enabled
+        );
+
         return AdminUserResponse.builder()
                 .id(user.getId())
                 .firstName(user.getFirstName())
@@ -556,6 +595,13 @@ public class AuthService {
                     role
             );
 
+            logUserManagementAudit(
+                    "USER_UPDATED",
+                    user.getId(),
+                    AuditResult.SUCCESS,
+                    "role=" + role
+            );
+
             return getUserCard(userId);
 
         } catch (TimeoutException e) {
@@ -639,6 +685,13 @@ public class AuthService {
                     role
             );
 
+            logUserManagementAudit(
+                    "USER_DELETED",
+                    userId,
+                    AuditResult.SUCCESS,
+                    "role=" + role
+            );
+
         } catch (TimeoutException e) {
 
             throw new ApiException(
@@ -670,6 +723,49 @@ public class AuthService {
 
             profileDeleteRequestManager.remove(requestId);
         }
+    }
+
+    /**
+     * Унифицированная запись аудита операций управления пользователями.
+     *
+     * Получаем инициатора из SecurityContext.
+     * Если авторизация отсутствует или principal имеет другой тип,
+     * actorId будет null, а actorRole — ANONYMOUS.
+     */
+    private void logUserManagementAudit(
+            String action,
+            UUID entityId,
+            AuditResult result,
+            String details
+    ) {
+
+        UUID actorId = null;
+        String actorRole = "ANONYMOUS";
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication != null
+                && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof User actor) {
+
+            actorId = actor.getId();
+
+            if (actor.getRole() != null
+                    && actor.getRole().getName() != null) {
+
+                actorRole = actor.getRole().getName().name();
+            }
+        }
+
+        auditService.logUserManagementEvent(
+                action,
+                actorId,
+                actorRole,
+                entityId,
+                result,
+                details
+        );
     }
 
     /**

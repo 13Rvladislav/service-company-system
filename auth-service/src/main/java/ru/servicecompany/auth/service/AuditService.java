@@ -1,3 +1,4 @@
+
 package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
@@ -21,12 +22,6 @@ public class AuditService {
 
     /**
      * Запись события авторизации.
-     *
-     * REQUIRES_NEW гарантирует сохранение записи аудита
-     * независимо от основной транзакции бизнес-операции.
-     *
-     * Это особенно важно для неудачного входа:
-     * endpoint возвращает ошибку, но запись аудита сохраняется.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logAuthEvent(
@@ -44,6 +39,39 @@ public class AuditService {
         auditLog.setAction(action);
         auditLog.setEntityType("AUTHENTICATION");
         auditLog.setEntityId(actorId);
+        auditLog.setResult(result);
+        auditLog.setCorrelationId(MDC.get("correlationId"));
+        auditLog.setDetails(limitDetails(details));
+
+        auditLogRepository.save(auditLog);
+    }
+
+    /**
+     * Запись события управления учетной записью пользователя.
+     *
+     * actorId — пользователь, выполнивший действие.
+     * entityId — пользователь, над которым выполнено действие.
+     *
+     * REQUIRES_NEW позволяет сохранить аудит независимо
+     * от основной транзакции бизнес-операции.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void logUserManagementEvent(
+            String action,
+            UUID actorId,
+            String actorRole,
+            UUID entityId,
+            AuditResult result,
+            String details
+    ) {
+
+        AuditLog auditLog = new AuditLog();
+
+        auditLog.setActorId(actorId);
+        auditLog.setActorRole(actorRole);
+        auditLog.setAction(action);
+        auditLog.setEntityType("USER_ACCOUNT");
+        auditLog.setEntityId(entityId);
         auditLog.setResult(result);
         auditLog.setCorrelationId(MDC.get("correlationId"));
         auditLog.setDetails(limitDetails(details));
