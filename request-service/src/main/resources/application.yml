@@ -15,7 +15,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -47,9 +47,17 @@ jwt:
   expiration: ${JWT_EXPIRATION}
 
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [${spring.application.name}] [correlationId=%X{correlationId:-}] [%thread] %logger{36} - %msg%n"
+
   level:
+    root: INFO
+    ru.servicecompany: DEBUG
+    org.springframework.web: INFO
     org.springframework.security: INFO
     org.springframework.kafka: INFO
     org.springframework.kafka.config: INFO
     org.springframework.kafka.listener: INFO
     org.apache.kafka.clients.consumer: INFO
+    org.apache.kafka: WARN
+    org.hibernate.SQL: WARN
