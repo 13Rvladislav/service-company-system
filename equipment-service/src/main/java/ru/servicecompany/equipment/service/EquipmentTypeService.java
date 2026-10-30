@@ -22,6 +22,7 @@ import java.util.UUID;
 public class EquipmentTypeService {
 
     private final EquipmentTypeRepository equipmentTypeRepository;
+    private final AuditService auditService;
 
     /**
      * Получить все типы оборудования.
@@ -61,7 +62,6 @@ public class EquipmentTypeService {
         String name = request.getName().trim();
 
         if (equipmentTypeRepository.existsByNameIgnoreCase(name)) {
-
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Тип оборудования с названием '"
@@ -78,10 +78,16 @@ public class EquipmentTypeService {
         EquipmentType saved =
                 equipmentTypeRepository.save(equipmentType);
 
-        log.info(
-                "BUSINESS_EVENT event=EQUIPMENT_TYPE_CREATED equipmentTypeId={} name={}",
+        auditService.logSuccess(
+                "EQUIPMENT_TYPE_CREATED",
+                "EQUIPMENT_TYPE",
                 saved.getId(),
-                saved.getName()
+                "operation=CREATE"
+        );
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_TYPE_CREATED equipmentTypeId={}",
+                saved.getId()
         );
 
         return mapToResponse(saved);
@@ -117,18 +123,21 @@ public class EquipmentTypeService {
             );
         }
 
-        String previousName = equipmentType.getName();
-
         equipmentType.setName(name);
 
         EquipmentType updated =
                 equipmentTypeRepository.save(equipmentType);
 
-        log.info(
-                "BUSINESS_EVENT event=EQUIPMENT_TYPE_UPDATED equipmentTypeId={} previousName={} newName={}",
+        auditService.logSuccess(
+                "EQUIPMENT_TYPE_UPDATED",
+                "EQUIPMENT_TYPE",
                 updated.getId(),
-                previousName,
-                updated.getName()
+                "operation=UPDATE"
+        );
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_TYPE_UPDATED equipmentTypeId={}",
+                updated.getId()
         );
 
         return mapToResponse(updated);
@@ -148,14 +157,18 @@ public class EquipmentTypeService {
                                         + " не найден"
                         ));
 
-        String name = equipmentType.getName();
-
         equipmentTypeRepository.delete(equipmentType);
 
-        log.info(
-                "BUSINESS_EVENT event=EQUIPMENT_TYPE_DELETED equipmentTypeId={} name={}",
+        auditService.logSuccess(
+                "EQUIPMENT_TYPE_DELETED",
+                "EQUIPMENT_TYPE",
                 id,
-                name
+                "operation=DELETE"
+        );
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_TYPE_DELETED equipmentTypeId={}",
+                id
         );
     }
 

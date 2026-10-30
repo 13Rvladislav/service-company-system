@@ -25,11 +25,14 @@ public class UserEquipmentService {
 
     private final UserEquipmentRepository userEquipmentRepository;
     private final EquipmentCatalogRepository equipmentCatalogRepository;
+    private final AuditService auditService;
 
+    /**
+     * Получить оборудование текущего пользователя.
+     */
     @Transactional(readOnly = true)
-    public List<UserEquipmentResponse> getMyEquipment(
-            UUID authUserId
-    ) {
+    public List<UserEquipmentResponse> getMyEquipment(UUID authUserId) {
+
         return userEquipmentRepository
                 .findAllByAuthUserId(authUserId)
                 .stream()
@@ -37,21 +40,23 @@ public class UserEquipmentService {
                 .toList();
     }
 
+    /**
+     * Получить оборудование пользователя по ID.
+     */
     @Transactional(readOnly = true)
     public UserEquipmentResponse getMyEquipmentById(
             UUID authUserId,
             UUID equipmentId
     ) {
+
         UserEquipment userEquipment =
-                userEquipmentRepository
-                        .findByIdAndAuthUserId(
-                                equipmentId,
-                                authUserId
-                        )
-                        .orElseThrow(() -> new ApiException(
-                                HttpStatus.NOT_FOUND,
-                                "Оборудование не найдено"
-                        ));
+                userEquipmentRepository.findByIdAndAuthUserId(
+                        equipmentId,
+                        authUserId
+                ).orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Оборудование не найдено"
+                ));
 
         return mapToResponse(userEquipment);
     }
@@ -63,10 +68,9 @@ public class UserEquipmentService {
             UUID authUserId,
             UserEquipmentRequest request
     ) {
+
         EquipmentCatalog equipmentCatalog =
-                getEquipmentCatalog(
-                        request.getEquipmentCatalogId()
-                );
+                getEquipmentCatalog(request.getEquipmentCatalogId());
 
         UserEquipment userEquipment =
                 UserEquipment.builder()
@@ -75,20 +79,27 @@ public class UserEquipmentService {
                         .serialNumber(normalizeSerialNumber(
                                 request.getSerialNumber()
                         ))
-                        .installationDate(
-                                request.getInstallationDate()
-                        )
+                        .installationDate(request.getInstallationDate())
                         .build();
 
         UserEquipment saved =
                 userEquipmentRepository.save(userEquipment);
 
+        auditService.logSuccess(
+                "USER_EQUIPMENT_ADDED",
+                "USER_EQUIPMENT",
+                saved.getId(),
+                "operation=CREATE"
+                        + ";equipmentCatalogId=" + equipmentCatalog.getId()
+                        + ";equipmentTypeId="
+                        + equipmentCatalog.getEquipmentType().getId()
+        );
+
         log.info(
-                "BUSINESS_EVENT event=USER_EQUIPMENT_ADDED authUserId={} equipmentId={} catalogId={} equipmentTypeId={}",
+                "BUSINESS_EVENT event=USER_EQUIPMENT_ADDED authUserId={} equipmentId={} catalogId={}",
                 authUserId,
                 saved.getId(),
-                equipmentCatalog.getId(),
-                equipmentCatalog.getEquipmentType().getId()
+                equipmentCatalog.getId()
         );
 
         return mapToResponse(saved);
@@ -102,33 +113,26 @@ public class UserEquipmentService {
             UUID equipmentId,
             UserEquipmentRequest request
     ) {
+
         UserEquipment userEquipment =
-                userEquipmentRepository
-                        .findByIdAndAuthUserId(
-                                equipmentId,
-                                authUserId
-                        )
-                        .orElseThrow(() -> new ApiException(
-                                HttpStatus.NOT_FOUND,
-                                "Оборудование не найдено"
-                        ));
+                userEquipmentRepository.findByIdAndAuthUserId(
+                        equipmentId,
+                        authUserId
+                ).orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Оборудование не найдено"
+                ));
 
         UUID previousCatalogId =
                 userEquipment.getEquipmentCatalog().getId();
 
         EquipmentCatalog equipmentCatalog =
-                getEquipmentCatalog(
-                        request.getEquipmentCatalogId()
-                );
+                getEquipmentCatalog(request.getEquipmentCatalogId());
 
-        userEquipment.setEquipmentCatalog(
-                equipmentCatalog
-        );
+        userEquipment.setEquipmentCatalog(equipmentCatalog);
 
         userEquipment.setSerialNumber(
-                normalizeSerialNumber(
-                        request.getSerialNumber()
-                )
+                normalizeSerialNumber(request.getSerialNumber())
         );
 
         userEquipment.setInstallationDate(
@@ -136,9 +140,16 @@ public class UserEquipmentService {
         );
 
         UserEquipment updated =
-                userEquipmentRepository.save(
-                        userEquipment
-                );
+                userEquipmentRepository.save(userEquipment);
+
+        auditService.logSuccess(
+                "USER_EQUIPMENT_UPDATED",
+                "USER_EQUIPMENT",
+                updated.getId(),
+                "operation=UPDATE"
+                        + ";previousCatalogId=" + previousCatalogId
+                        + ";newCatalogId=" + equipmentCatalog.getId()
+        );
 
         log.info(
                 "BUSINESS_EVENT event=USER_EQUIPMENT_UPDATED authUserId={} equipmentId={} previousCatalogId={} newCatalogId={}",
@@ -158,21 +169,27 @@ public class UserEquipmentService {
             UUID authUserId,
             UUID equipmentId
     ) {
+
         UserEquipment userEquipment =
-                userEquipmentRepository
-                        .findByIdAndAuthUserId(
-                                equipmentId,
-                                authUserId
-                        )
-                        .orElseThrow(() -> new ApiException(
-                                HttpStatus.NOT_FOUND,
-                                "Оборудование не найдено"
-                        ));
+                userEquipmentRepository.findByIdAndAuthUserId(
+                        equipmentId,
+                        authUserId
+                ).orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Оборудование не найдено"
+                ));
 
         UUID catalogId =
                 userEquipment.getEquipmentCatalog().getId();
 
         userEquipmentRepository.delete(userEquipment);
+
+        auditService.logSuccess(
+                "USER_EQUIPMENT_DELETED",
+                "USER_EQUIPMENT",
+                equipmentId,
+                "operation=DELETE;equipmentCatalogId=" + catalogId
+        );
 
         log.info(
                 "BUSINESS_EVENT event=USER_EQUIPMENT_DELETED authUserId={} equipmentId={} catalogId={}",
@@ -182,9 +199,13 @@ public class UserEquipmentService {
         );
     }
 
+    /**
+     * Получить оборудование из каталога.
+     */
     private EquipmentCatalog getEquipmentCatalog(
             UUID equipmentCatalogId
     ) {
+
         return equipmentCatalogRepository
                 .findById(equipmentCatalogId)
                 .orElseThrow(() -> new ApiException(
@@ -195,42 +216,34 @@ public class UserEquipmentService {
                 ));
     }
 
+    /**
+     * Entity -> Response DTO.
+     */
     private UserEquipmentResponse mapToResponse(
             UserEquipment userEquipment
     ) {
+
         EquipmentCatalog catalog =
                 userEquipment.getEquipmentCatalog();
 
         return UserEquipmentResponse.builder()
                 .id(userEquipment.getId())
                 .equipmentCatalogId(catalog.getId())
-                .equipmentTypeId(
-                        catalog.getEquipmentType().getId()
-                )
-                .equipmentTypeName(
-                        catalog.getEquipmentType().getName()
-                )
-                .manufacturer(
-                        catalog.getManufacturer()
-                )
-                .model(
-                        catalog.getModel()
-                )
-                .description(
-                        catalog.getDescription()
-                )
-                .serialNumber(
-                        userEquipment.getSerialNumber()
-                )
-                .installationDate(
-                        userEquipment.getInstallationDate()
-                )
+                .equipmentTypeId(catalog.getEquipmentType().getId())
+                .equipmentTypeName(catalog.getEquipmentType().getName())
+                .manufacturer(catalog.getManufacturer())
+                .model(catalog.getModel())
+                .description(catalog.getDescription())
+                .serialNumber(userEquipment.getSerialNumber())
+                .installationDate(userEquipment.getInstallationDate())
                 .build();
     }
 
-    private String normalizeSerialNumber(
-            String serialNumber
-    ) {
+    /**
+     * Нормализовать серийный номер.
+     */
+    private String normalizeSerialNumber(String serialNumber) {
+
         if (serialNumber == null || serialNumber.isBlank()) {
             return null;
         }

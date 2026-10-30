@@ -1,3 +1,4 @@
+
 package ru.servicecompany.user.service;
 
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class InternalProfileService {
     private final AdminProfileRepository adminRepository;
     private final ZoneRepository zoneRepository;
     private final MasterSpecializationRepository specializationRepository;
+    private final AuditService auditService;
 
     /**
      * Создание профиля мастера.
@@ -46,7 +48,6 @@ public class InternalProfileService {
             );
         }
 
-        // Проверяем существование зоны.
         if (request.getZoneId() != null
                 && !zoneRepository.existsById(request.getZoneId())) {
             throw new ApiException(
@@ -55,7 +56,6 @@ public class InternalProfileService {
             );
         }
 
-        // Получаем специализации по их UUID.
         List<UUID> specializationIds = request.getSpecializationIds();
 
         Set<MasterSpecialization> specializations = new HashSet<>();
@@ -95,12 +95,22 @@ public class InternalProfileService {
         profile.setSpecializations(specializations);
         profile.setZoneId(request.getZoneId());
 
-        masterRepository.save(profile);
+        MasterProfile savedProfile = masterRepository.save(profile);
+
+        auditService.logSystemSuccess(
+                "MASTER_PROFILE_CREATED",
+                "MASTER_PROFILE",
+                savedProfile.getId(),
+                "operation=CREATE"
+                        + ";specializationCount=" + specializations.size()
+                        + ";zoneAssigned=" + (request.getZoneId() != null)
+        );
     }
 
     /**
      * Создание профиля диспетчера.
      */
+    @Transactional
     public void createDispatcher(CreateDispatcherProfileRequest request) {
 
         if (dispatcherRepository.existsByAuthUserId(request.getAuthUserId())) {
@@ -120,12 +130,21 @@ public class InternalProfileService {
         profile.setEmployeeNumber(request.getEmployeeNumber());
         profile.setDepartment(request.getDepartment());
 
-        dispatcherRepository.save(profile);
+        DispatcherProfile savedProfile =
+                dispatcherRepository.save(profile);
+
+        auditService.logSystemSuccess(
+                "DISPATCHER_PROFILE_CREATED",
+                "DISPATCHER_PROFILE",
+                savedProfile.getId(),
+                "operation=CREATE"
+        );
     }
 
     /**
      * Создание профиля администратора.
      */
+    @Transactional
     public void createAdmin(CreateAdminProfileRequest request) {
 
         if (adminRepository.existsByAuthUserId(request.getAuthUserId())) {
@@ -145,6 +164,13 @@ public class InternalProfileService {
         profile.setEmployeeNumber(request.getEmployeeNumber());
         profile.setPosition(request.getPosition());
 
-        adminRepository.save(profile);
+        AdminProfile savedProfile = adminRepository.save(profile);
+
+        auditService.logSystemSuccess(
+                "ADMIN_PROFILE_CREATED",
+                "ADMIN_PROFILE",
+                savedProfile.getId(),
+                "operation=CREATE"
+        );
     }
 }

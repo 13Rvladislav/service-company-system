@@ -1,4 +1,3 @@
-
 package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
@@ -16,6 +15,7 @@ import ru.servicecompany.auth.dto.response.UserResponse;
 import ru.servicecompany.auth.entity.Role;
 import ru.servicecompany.auth.entity.RoleName;
 import ru.servicecompany.auth.entity.User;
+import ru.servicecompany.auth.enums.AuditResult;
 import ru.servicecompany.auth.kafka.*;
 import ru.servicecompany.auth.kafka.event.ProfileDeleteResponseEvent;
 import ru.servicecompany.auth.kafka.event.ProfileResponseEvent;
@@ -40,6 +40,8 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AuditService auditService;
+
     private final UserProfileProducer userProfileProducer;
     private final AdminProfileRequestProducer adminProfileRequestProducer;
     private final ProfileRequestManager profileRequestManager;
@@ -54,8 +56,17 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
+
             log.warn(
                     "BUSINESS_EVENT event=USER_REGISTRATION_FAILED reason=EMAIL_ALREADY_EXISTS"
+            );
+
+            auditService.logAuthEvent(
+                    "AUTH_REGISTER_FAILURE",
+                    null,
+                    "ANONYMOUS",
+                    AuditResult.FAILURE,
+                    "reason=EMAIL_ALREADY_EXISTS"
             );
 
             throw new ApiException(
@@ -65,8 +76,17 @@ public class AuthService {
         }
 
         if (userRepository.existsByPhone(request.getPhone())) {
+
             log.warn(
                     "BUSINESS_EVENT event=USER_REGISTRATION_FAILED reason=PHONE_ALREADY_EXISTS"
+            );
+
+            auditService.logAuthEvent(
+                    "AUTH_REGISTER_FAILURE",
+                    null,
+                    "ANONYMOUS",
+                    AuditResult.FAILURE,
+                    "reason=PHONE_ALREADY_EXISTS"
             );
 
             throw new ApiException(
@@ -92,12 +112,21 @@ public class AuthService {
         user.setRole(role);
 
         userRepository.save(user);
+
         userProfileProducer.sendClientProfileCreate(user);
 
         log.info(
                 "BUSINESS_EVENT event=USER_REGISTERED userId={} role={}",
                 user.getId(),
                 role.getName()
+        );
+
+        auditService.logAuthEvent(
+                "AUTH_REGISTER_SUCCESS",
+                user.getId(),
+                role.getName().name(),
+                AuditResult.SUCCESS,
+                "account=CLIENT"
         );
 
         return map(user);
@@ -110,8 +139,17 @@ public class AuthService {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> {
+
                     log.warn(
                             "BUSINESS_EVENT event=LOGIN_FAILED reason=USER_NOT_FOUND"
+                    );
+
+                    auditService.logAuthEvent(
+                            "AUTH_LOGIN_FAILURE",
+                            null,
+                            "ANONYMOUS",
+                            AuditResult.FAILURE,
+                            "reason=USER_NOT_FOUND"
                     );
 
                     return new ApiException(
@@ -121,9 +159,18 @@ public class AuthService {
                 });
 
         if (!Boolean.TRUE.equals(user.getEnabled())) {
+
             log.warn(
                     "BUSINESS_EVENT event=LOGIN_FAILED userId={} reason=ACCOUNT_DISABLED",
                     user.getId()
+            );
+
+            auditService.logAuthEvent(
+                    "AUTH_LOGIN_FAILURE",
+                    user.getId(),
+                    user.getRole().getName().name(),
+                    AuditResult.FAILURE,
+                    "reason=ACCOUNT_DISABLED"
             );
 
             throw new ApiException(
@@ -136,9 +183,18 @@ public class AuthService {
                 request.getPassword(),
                 user.getPassword()
         )) {
+
             log.warn(
                     "BUSINESS_EVENT event=LOGIN_FAILED userId={} reason=INVALID_CREDENTIALS",
                     user.getId()
+            );
+
+            auditService.logAuthEvent(
+                    "AUTH_LOGIN_FAILURE",
+                    user.getId(),
+                    user.getRole().getName().name(),
+                    AuditResult.FAILURE,
+                    "reason=INVALID_CREDENTIALS"
             );
 
             throw new ApiException(
@@ -153,6 +209,14 @@ public class AuthService {
                 "BUSINESS_EVENT event=LOGIN_SUCCEEDED userId={} role={}",
                 user.getId(),
                 user.getRole().getName()
+        );
+
+        auditService.logAuthEvent(
+                "AUTH_LOGIN_SUCCESS",
+                user.getId(),
+                user.getRole().getName().name(),
+                AuditResult.SUCCESS,
+                "authentication=JWT"
         );
 
         return new LoginResponse(token);
@@ -173,6 +237,7 @@ public class AuthService {
     ) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
+
             log.warn(
                     "BUSINESS_EVENT event=EMPLOYEE_CREATION_FAILED reason=EMAIL_ALREADY_EXISTS"
             );
@@ -184,6 +249,7 @@ public class AuthService {
         }
 
         if (userRepository.existsByPhone(request.getPhone())) {
+
             log.warn(
                     "BUSINESS_EVENT event=EMPLOYEE_CREATION_FAILED reason=PHONE_ALREADY_EXISTS"
             );
@@ -215,8 +281,11 @@ public class AuthService {
         userRepository.save(user);
 
         try {
+
             userProfileProducer.sendEmployeeProfileCreate(user, request);
+
         } catch (Exception e) {
+
             userRepository.deleteById(user.getId());
 
             log.error(
@@ -298,6 +367,7 @@ public class AuthService {
                 profileRequestManager.register(requestId);
 
         try {
+
             adminProfileRequestProducer.requestProfile(
                     requestId,
                     user.getId(),
@@ -312,40 +382,35 @@ public class AuthService {
             return AdminUserCardResponse.builder()
                     .id(user.getId())
                     .authUserId(profile.getAuthUserId())
-
                     .firstName(profile.getFirstName())
                     .lastName(profile.getLastName())
                     .middleName(profile.getMiddleName())
-
                     .email(user.getEmail())
                     .phone(profile.getPhone())
                     .role(role)
-
                     .enabled(user.getEnabled())
                     .hasAvatar(profile.getHasAvatar())
-
                     .cityId(profile.getCityId())
                     .streetId(profile.getStreetId())
                     .houseId(profile.getHouseId())
                     .apartment(profile.getApartment())
-
                     .employeeNumber(profile.getEmployeeNumber())
                     .specializations(profile.getSpecializations())
                     .status(profile.getStatus())
-
                     .zones(profile.getZones())
-
                     .department(profile.getDepartment())
                     .position(profile.getPosition())
                     .build();
 
         } catch (TimeoutException e) {
+
             throw new ApiException(
                     HttpStatus.GATEWAY_TIMEOUT,
                     "Не удалось получить профиль пользователя"
             );
 
         } catch (InterruptedException e) {
+
             Thread.currentThread().interrupt();
 
             throw new ApiException(
@@ -354,12 +419,14 @@ public class AuthService {
             );
 
         } catch (Exception e) {
+
             throw new ApiException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Ошибка получения профиля пользователя"
             );
 
         } finally {
+
             profileRequestManager.remove(requestId);
         }
     }
@@ -418,6 +485,7 @@ public class AuthService {
 
         if (!user.getEmail().equalsIgnoreCase(request.getEmail())
                 && userRepository.existsByEmail(request.getEmail())) {
+
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким Email уже существует"
@@ -426,6 +494,7 @@ public class AuthService {
 
         if (!user.getPhone().equals(request.getPhone())
                 && userRepository.existsByPhone(request.getPhone())) {
+
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким телефоном уже существует"
@@ -439,6 +508,7 @@ public class AuthService {
                 profileUpdateRequestManager.register(requestId);
 
         try {
+
             profileUpdateRequestProducer.updateProfile(
                     requestId,
                     user.getId(),
@@ -447,17 +517,13 @@ public class AuthService {
                     request.getLastName(),
                     request.getMiddleName(),
                     request.getPhone(),
-
                     request.getHouseId(),
                     request.getApartment(),
-
                     request.getEmployeeNumber(),
                     request.getSpecialization(),
                     request.getZoneId(),
                     request.getStatus(),
-
                     request.getDepartment(),
-
                     request.getPosition()
             );
 
@@ -467,6 +533,7 @@ public class AuthService {
             );
 
             if (!response.isSuccess()) {
+
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         response.getReason() != null
@@ -492,12 +559,14 @@ public class AuthService {
             return getUserCard(userId);
 
         } catch (TimeoutException e) {
+
             throw new ApiException(
                     HttpStatus.GATEWAY_TIMEOUT,
                     "Не удалось обновить профиль пользователя"
             );
 
         } catch (InterruptedException e) {
+
             Thread.currentThread().interrupt();
 
             throw new ApiException(
@@ -506,15 +575,18 @@ public class AuthService {
             );
 
         } catch (ApiException e) {
+
             throw e;
 
         } catch (Exception e) {
+
             throw new ApiException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Ошибка обновления пользователя"
             );
 
         } finally {
+
             profileUpdateRequestManager.remove(requestId);
         }
     }
@@ -537,6 +609,7 @@ public class AuthService {
                 profileDeleteRequestManager.register(requestId);
 
         try {
+
             profileDeleteRequestProducer.deleteProfile(
                     requestId,
                     user.getId(),
@@ -549,6 +622,7 @@ public class AuthService {
             );
 
             if (!response.isSuccess()) {
+
                 throw new ApiException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
                         response.getReason() != null
@@ -566,12 +640,14 @@ public class AuthService {
             );
 
         } catch (TimeoutException e) {
+
             throw new ApiException(
                     HttpStatus.GATEWAY_TIMEOUT,
                     "Не удалось удалить профиль пользователя"
             );
 
         } catch (InterruptedException e) {
+
             Thread.currentThread().interrupt();
 
             throw new ApiException(
@@ -580,15 +656,18 @@ public class AuthService {
             );
 
         } catch (ApiException e) {
+
             throw e;
 
         } catch (Exception e) {
+
             throw new ApiException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Ошибка удаления пользователя"
             );
 
         } finally {
+
             profileDeleteRequestManager.remove(requestId);
         }
     }

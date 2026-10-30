@@ -1,4 +1,3 @@
-
 package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
@@ -12,6 +11,7 @@ import ru.servicecompany.auth.dto.request.ResetPasswordRequest;
 import ru.servicecompany.auth.dto.response.MessageResponse;
 import ru.servicecompany.auth.entity.PasswordResetToken;
 import ru.servicecompany.auth.entity.User;
+import ru.servicecompany.auth.enums.AuditResult;
 import ru.servicecompany.auth.repository.PasswordResetTokenRepository;
 import ru.servicecompany.auth.repository.UserRepository;
 
@@ -27,6 +27,7 @@ public class ForgotPasswordService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final AuditService auditService;
 
     /**
      * Создание токена восстановления.
@@ -36,10 +37,19 @@ public class ForgotPasswordService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElse(null);
 
-        // Не раскрываем существует ли email.
+        // Не раскрываем, существует ли email.
         if (user == null) {
+
             log.info(
                     "BUSINESS_EVENT event=PASSWORD_RESET_REQUEST_IGNORED reason=USER_NOT_FOUND"
+            );
+
+            auditService.logAuthEvent(
+                    "PASSWORD_RESET_REQUEST",
+                    null,
+                    "ANONYMOUS",
+                    AuditResult.SUCCESS,
+                    "result=GENERIC_RESPONSE"
             );
 
             return new MessageResponse(
@@ -66,6 +76,14 @@ public class ForgotPasswordService {
                 user.getId()
         );
 
+        auditService.logAuthEvent(
+                "PASSWORD_RESET_REQUEST",
+                user.getId(),
+                user.getRole().getName().name(),
+                AuditResult.SUCCESS,
+                "result=EMAIL_SENT"
+        );
+
         return new MessageResponse(
                 "Если аккаунт существует, инструкция отправлена на почту"
         );
@@ -79,8 +97,17 @@ public class ForgotPasswordService {
         PasswordResetToken resetToken = tokenRepository
                 .findByToken(request.getToken())
                 .orElseThrow(() -> {
+
                     log.warn(
                             "BUSINESS_EVENT event=PASSWORD_RESET_FAILED reason=INVALID_TOKEN"
+                    );
+
+                    auditService.logAuthEvent(
+                            "PASSWORD_RESET_FAILURE",
+                            null,
+                            "ANONYMOUS",
+                            AuditResult.FAILURE,
+                            "reason=INVALID_TOKEN"
                     );
 
                     return new ApiException(
@@ -90,9 +117,18 @@ public class ForgotPasswordService {
                 });
 
         if (resetToken.getUsed()) {
+
             log.warn(
                     "BUSINESS_EVENT event=PASSWORD_RESET_FAILED userId={} reason=TOKEN_ALREADY_USED",
                     resetToken.getUser().getId()
+            );
+
+            auditService.logAuthEvent(
+                    "PASSWORD_RESET_FAILURE",
+                    resetToken.getUser().getId(),
+                    resetToken.getUser().getRole().getName().name(),
+                    AuditResult.FAILURE,
+                    "reason=TOKEN_ALREADY_USED"
             );
 
             throw new ApiException(
@@ -102,9 +138,18 @@ public class ForgotPasswordService {
         }
 
         if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+
             log.warn(
                     "BUSINESS_EVENT event=PASSWORD_RESET_FAILED userId={} reason=TOKEN_EXPIRED",
                     resetToken.getUser().getId()
+            );
+
+            auditService.logAuthEvent(
+                    "PASSWORD_RESET_FAILURE",
+                    resetToken.getUser().getId(),
+                    resetToken.getUser().getRole().getName().name(),
+                    AuditResult.FAILURE,
+                    "reason=TOKEN_EXPIRED"
             );
 
             throw new ApiException(
@@ -128,6 +173,14 @@ public class ForgotPasswordService {
         log.info(
                 "BUSINESS_EVENT event=PASSWORD_RESET_SUCCEEDED userId={}",
                 user.getId()
+        );
+
+        auditService.logAuthEvent(
+                "PASSWORD_RESET_SUCCESS",
+                user.getId(),
+                user.getRole().getName().name(),
+                AuditResult.SUCCESS,
+                "password=CHANGED"
         );
 
         return new MessageResponse("Пароль успешно изменён");

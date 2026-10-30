@@ -18,6 +18,8 @@ import ru.servicecompany.auth.dto.response.LoginResponse;
 import ru.servicecompany.auth.dto.response.MessageResponse;
 import ru.servicecompany.auth.dto.response.UserResponse;
 import ru.servicecompany.auth.entity.User;
+import ru.servicecompany.auth.enums.AuditResult;
+import ru.servicecompany.auth.service.AuditService;
 import ru.servicecompany.auth.service.AuthService;
 import ru.servicecompany.auth.service.ForgotPasswordService;
 
@@ -27,9 +29,9 @@ import ru.servicecompany.auth.service.ForgotPasswordService;
 @RequiredArgsConstructor
 public class AuthController {
 
-    // Бизнес-логика авторизации
     private final AuthService authService;
     private final ForgotPasswordService forgotPasswordService;
+    private final AuditService auditService;
 
     /**
      * Регистрация нового пользователя.
@@ -43,28 +45,25 @@ public class AuthController {
 
     /**
      * Авторизация пользователя.
-     * <p>
+     *
      * После успешного входа JWT записывается
      * в HttpOnly Cookie, а не возвращается в JSON.
      */
     @PostMapping("/login")
-
     public ResponseEntity<MessageResponse> login(
             @RequestBody @Valid LoginRequest request
     ) {
 
-        // Получаем JWT из сервиса
         LoginResponse response = authService.login(request);
 
-        // Создаём защищённую Cookie
         ResponseCookie cookie = ResponseCookie.from(
                         "access_token",
                         response.getToken()
                 )
-                .httpOnly(true)     // JavaScript не видит токен
-                .secure(false)      // В production -> true
+                .httpOnly(true)
+                .secure(false)
                 .path("/")
-                .maxAge(60 * 60 * 24) // 24 часа
+                .maxAge(60 * 60 * 24)
                 .sameSite("Lax")
                 .build();
 
@@ -94,18 +93,29 @@ public class AuthController {
 
     /**
      * Выход из системы.
-     * <p>
-     * Пока просто удаляет JWT Cookie.
-     * Позже здесь будет удаление Refresh Token.
      */
     @PostMapping("/logout")
-    public ResponseEntity<MessageResponse> logout() {
+    public ResponseEntity<MessageResponse> logout(
+            Authentication authentication
+    ) {
+
+        if (authentication != null
+                && authentication.getPrincipal() instanceof User user) {
+
+            auditService.logAuthEvent(
+                    "AUTH_LOGOUT",
+                    user.getId(),
+                    user.getRole().getName().name(),
+                    AuditResult.SUCCESS,
+                    "logout=COOKIE_CLEARED"
+            );
+        }
 
         ResponseCookie cookie = ResponseCookie.from("access_token", "")
                 .httpOnly(true)
-                .secure(false)      // В production -> true
+                .secure(false)
                 .path("/")
-                .maxAge(0)          // Удалить cookie
+                .maxAge(0)
                 .sameSite("Lax")
                 .build();
 

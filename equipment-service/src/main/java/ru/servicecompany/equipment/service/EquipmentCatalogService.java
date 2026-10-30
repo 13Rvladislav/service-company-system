@@ -25,6 +25,7 @@ public class EquipmentCatalogService {
 
     private final EquipmentCatalogRepository equipmentCatalogRepository;
     private final EquipmentTypeRepository equipmentTypeRepository;
+    private final AuditService auditService;
 
     /**
      * Получить весь каталог оборудования.
@@ -48,9 +49,7 @@ public class EquipmentCatalogService {
                 equipmentCatalogRepository.findById(id)
                         .orElseThrow(() -> new ApiException(
                                 HttpStatus.NOT_FOUND,
-                                "Оборудование с id "
-                                        + id
-                                        + " не найдено"
+                                "Оборудование с id " + id + " не найдено"
                         ));
 
         return mapToResponse(equipment);
@@ -69,28 +68,28 @@ public class EquipmentCatalogService {
         EquipmentCatalog equipment =
                 EquipmentCatalog.builder()
                         .equipmentType(equipmentType)
-                        .manufacturer(
-                                request.getManufacturer().trim()
-                        )
-                        .model(
-                                request.getModel().trim()
-                        )
+                        .manufacturer(request.getManufacturer().trim())
+                        .model(request.getModel().trim())
                         .description(
-                                normalizeDescription(
-                                        request.getDescription()
-                                )
+                                normalizeDescription(request.getDescription())
                         )
                         .build();
 
         EquipmentCatalog saved =
                 equipmentCatalogRepository.save(equipment);
 
-        log.info(
-                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_CREATED equipmentId={} equipmentTypeId={} manufacturer={} model={}",
+        auditService.logSuccess(
+                "EQUIPMENT_CATALOG_CREATED",
+                "EQUIPMENT_CATALOG",
                 saved.getId(),
-                equipmentType.getId(),
-                saved.getManufacturer(),
-                saved.getModel()
+                "operation=CREATE;equipmentTypeId="
+                        + equipmentType.getId()
+        );
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_CREATED equipmentId={} equipmentTypeId={}",
+                saved.getId(),
+                equipmentType.getId()
         );
 
         return mapToResponse(saved);
@@ -108,9 +107,7 @@ public class EquipmentCatalogService {
                 equipmentCatalogRepository.findById(id)
                         .orElseThrow(() -> new ApiException(
                                 HttpStatus.NOT_FOUND,
-                                "Оборудование с id "
-                                        + id
-                                        + " не найдено"
+                                "Оборудование с id " + id + " не найдено"
                         ));
 
         EquipmentType equipmentType =
@@ -120,31 +117,29 @@ public class EquipmentCatalogService {
                 equipment.getEquipmentType().getId();
 
         equipment.setEquipmentType(equipmentType);
-
-        equipment.setManufacturer(
-                request.getManufacturer().trim()
-        );
-
-        equipment.setModel(
-                request.getModel().trim()
-        );
-
+        equipment.setManufacturer(request.getManufacturer().trim());
+        equipment.setModel(request.getModel().trim());
         equipment.setDescription(
-                normalizeDescription(
-                        request.getDescription()
-                )
+                normalizeDescription(request.getDescription())
         );
 
         EquipmentCatalog updated =
                 equipmentCatalogRepository.save(equipment);
 
+        auditService.logSuccess(
+                "EQUIPMENT_CATALOG_UPDATED",
+                "EQUIPMENT_CATALOG",
+                updated.getId(),
+                "operation=UPDATE"
+                        + ";previousEquipmentTypeId=" + previousEquipmentTypeId
+                        + ";newEquipmentTypeId=" + equipmentType.getId()
+        );
+
         log.info(
-                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_UPDATED equipmentId={} previousEquipmentTypeId={} newEquipmentTypeId={} manufacturer={} model={}",
+                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_UPDATED equipmentId={} previousEquipmentTypeId={} newEquipmentTypeId={}",
                 updated.getId(),
                 previousEquipmentTypeId,
-                equipmentType.getId(),
-                updated.getManufacturer(),
-                updated.getModel()
+                equipmentType.getId()
         );
 
         return mapToResponse(updated);
@@ -159,23 +154,25 @@ public class EquipmentCatalogService {
                 equipmentCatalogRepository.findById(id)
                         .orElseThrow(() -> new ApiException(
                                 HttpStatus.NOT_FOUND,
-                                "Оборудование с id "
-                                        + id
-                                        + " не найдено"
+                                "Оборудование с id " + id + " не найдено"
                         ));
 
-        UUID equipmentTypeId = equipment.getEquipmentType().getId();
-        String manufacturer = equipment.getManufacturer();
-        String model = equipment.getModel();
+        UUID equipmentTypeId =
+                equipment.getEquipmentType().getId();
 
         equipmentCatalogRepository.delete(equipment);
 
-        log.info(
-                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_DELETED equipmentId={} equipmentTypeId={} manufacturer={} model={}",
+        auditService.logSuccess(
+                "EQUIPMENT_CATALOG_DELETED",
+                "EQUIPMENT_CATALOG",
                 id,
-                equipmentTypeId,
-                manufacturer,
-                model
+                "operation=DELETE;equipmentTypeId=" + equipmentTypeId
+        );
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_DELETED equipmentId={} equipmentTypeId={}",
+                id,
+                equipmentTypeId
         );
     }
 
@@ -187,14 +184,12 @@ public class EquipmentCatalogService {
         return equipmentTypeRepository.findById(id)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
-                        "Тип оборудования с id "
-                                + id
-                                + " не найден"
+                        "Тип оборудования с id " + id + " не найден"
                 ));
     }
 
     /**
-     * Преобразовать Entity в Response DTO.
+     * Entity -> Response DTO.
      */
     private EquipmentCatalogResponse mapToResponse(
             EquipmentCatalog equipment
@@ -202,30 +197,18 @@ public class EquipmentCatalogService {
 
         return EquipmentCatalogResponse.builder()
                 .id(equipment.getId())
-                .equipmentTypeId(
-                        equipment.getEquipmentType().getId()
-                )
-                .equipmentTypeName(
-                        equipment.getEquipmentType().getName()
-                )
-                .manufacturer(
-                        equipment.getManufacturer()
-                )
-                .model(
-                        equipment.getModel()
-                )
-                .description(
-                        equipment.getDescription()
-                )
+                .equipmentTypeId(equipment.getEquipmentType().getId())
+                .equipmentTypeName(equipment.getEquipmentType().getName())
+                .manufacturer(equipment.getManufacturer())
+                .model(equipment.getModel())
+                .description(equipment.getDescription())
                 .build();
     }
 
     /**
      * Нормализовать описание.
      */
-    private String normalizeDescription(
-            String description
-    ) {
+    private String normalizeDescription(String description) {
 
         if (description == null || description.isBlank()) {
             return null;
