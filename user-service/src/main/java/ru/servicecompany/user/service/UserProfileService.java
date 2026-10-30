@@ -39,6 +39,7 @@ public class UserProfileService {
     private final ZoneRepository zoneRepository;
     private final MasterSpecializationRepository specializationRepository;
     private final MasterZoneRepository masterZoneRepository;
+    private final AuditService auditService;
 
     /**
      * Создание профиля клиента.
@@ -63,9 +64,15 @@ public class UserProfileService {
         UserProfile savedProfile = userRepository.save(profile);
 
         log.info(
-                "BUSINESS_EVENT event=USER_PROFILE_CREATED profileId={} authUserId={} role=CLIENT",
+                "BUSINESS_EVENT event=USER_PROFILE_CREATED profileId={} role=CLIENT",
+                savedProfile.getId()
+        );
+
+        auditService.logSuccess(
+                "USER_PROFILE_CREATED",
+                "USER_PROFILE",
                 savedProfile.getId(),
-                savedProfile.getAuthUserId()
+                "operation=CREATE;role=CLIENT"
         );
 
         return map(savedProfile, "CLIENT", null);
@@ -197,10 +204,6 @@ public class UserProfileService {
                                 "Дом не найден"
                         ));
 
-                UUID previousHouseId = profile.getHouse() != null
-                        ? profile.getHouse().getId()
-                        : null;
-
                 profile.setFirstName(request.getFirstName());
                 profile.setLastName(request.getLastName());
                 profile.setMiddleName(request.getMiddleName());
@@ -211,11 +214,15 @@ public class UserProfileService {
                 userRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=CLIENT previousHouseId={} newHouseId={}",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} role=CLIENT",
+                        profile.getId()
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_UPDATED",
+                        "USER_PROFILE",
                         profile.getId(),
-                        profile.getAuthUserId(),
-                        previousHouseId,
-                        house.getId()
+                        "operation=UPDATE;role=CLIENT;addressUpdated=true"
                 );
 
                 yield map(profile, principal.role(), principal.email());
@@ -238,9 +245,15 @@ public class UserProfileService {
                 masterRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=ENGINEER",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} role=ENGINEER",
+                        profile.getId()
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_UPDATED",
+                        "MASTER_PROFILE",
                         profile.getId(),
-                        profile.getAuthUserId()
+                        "operation=UPDATE;role=ENGINEER"
                 );
 
                 yield UserProfileResponse.builder()
@@ -277,9 +290,15 @@ public class UserProfileService {
                 dispatcherRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=DISPATCHER",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} role=DISPATCHER",
+                        profile.getId()
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_UPDATED",
+                        "DISPATCHER_PROFILE",
                         profile.getId(),
-                        profile.getAuthUserId()
+                        "operation=UPDATE;role=DISPATCHER"
                 );
 
                 yield UserProfileResponse.builder()
@@ -314,9 +333,15 @@ public class UserProfileService {
                 adminRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=ADMIN",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} role=ADMIN",
+                        profile.getId()
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_UPDATED",
+                        "ADMIN_PROFILE",
                         profile.getId(),
-                        profile.getAuthUserId()
+                        "operation=UPDATE;role=ADMIN"
                 );
 
                 yield UserProfileResponse.builder()
@@ -372,10 +397,16 @@ public class UserProfileService {
                 userRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=CLIENT sizeBytes={}",
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} role=CLIENT sizeBytes={}",
                         profile.getId(),
-                        userId,
                         avatar.length
+                );
+
+                auditService.logSuccess(
+                        "USER_AVATAR_UPLOADED",
+                        "USER_PROFILE",
+                        profile.getId(),
+                        "operation=AVATAR_UPLOAD;role=CLIENT;sizeBytes=" + avatar.length
                 );
             }
 
@@ -389,10 +420,16 @@ public class UserProfileService {
                 masterRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=ENGINEER sizeBytes={}",
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} role=ENGINEER sizeBytes={}",
                         profile.getId(),
-                        userId,
                         avatar.length
+                );
+
+                auditService.logSuccess(
+                        "USER_AVATAR_UPLOADED",
+                        "MASTER_PROFILE",
+                        profile.getId(),
+                        "operation=AVATAR_UPLOAD;role=ENGINEER;sizeBytes=" + avatar.length
                 );
             }
 
@@ -406,10 +443,16 @@ public class UserProfileService {
                 dispatcherRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=DISPATCHER sizeBytes={}",
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} role=DISPATCHER sizeBytes={}",
                         profile.getId(),
-                        userId,
                         avatar.length
+                );
+
+                auditService.logSuccess(
+                        "USER_AVATAR_UPLOADED",
+                        "DISPATCHER_PROFILE",
+                        profile.getId(),
+                        "operation=AVATAR_UPLOAD;role=DISPATCHER;sizeBytes=" + avatar.length
                 );
             }
 
@@ -423,10 +466,16 @@ public class UserProfileService {
                 adminRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=ADMIN sizeBytes={}",
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} role=ADMIN sizeBytes={}",
                         profile.getId(),
-                        userId,
                         avatar.length
+                );
+
+                auditService.logSuccess(
+                        "USER_AVATAR_UPLOADED",
+                        "ADMIN_PROFILE",
+                        profile.getId(),
+                        "operation=AVATAR_UPLOAD;role=ADMIN;sizeBytes=" + avatar.length
                 );
             }
 
@@ -616,10 +665,15 @@ public class UserProfileService {
                 userRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=CLIENT houseId={}",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} role=CLIENT",
+                        profile.getId()
+                );
+
+                auditService.logSystemSuccess(
+                        "USER_PROFILE_UPDATED_FROM_AUTH",
+                        "USER_PROFILE",
                         profile.getId(),
-                        event.getAuthUserId(),
-                        house.getId()
+                        "operation=UPDATE_FROM_AUTH;role=CLIENT;addressUpdated=true"
                 );
             }
 
@@ -691,12 +745,23 @@ public class UserProfileService {
                 masterRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=ENGINEER status={} specializationsUpdated={} zoneUpdated={}",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} role=ENGINEER status={} specializationsUpdated={} zoneUpdated={}",
                         profile.getId(),
-                        event.getAuthUserId(),
                         status,
                         event.getSpecializationIds() != null,
                         event.getZoneId() != null
+                );
+
+                auditService.logSystemSuccess(
+                        "USER_PROFILE_UPDATED_FROM_AUTH",
+                        "MASTER_PROFILE",
+                        profile.getId(),
+                        "operation=UPDATE_FROM_AUTH;role=ENGINEER;status="
+                                + status
+                                + ";specializationsUpdated="
+                                + (event.getSpecializationIds() != null)
+                                + ";zoneUpdated="
+                                + (event.getZoneId() != null)
                 );
             }
 
@@ -704,8 +769,7 @@ public class UserProfileService {
                 DispatcherProfile profile =
                         dispatcherRepository.findByAuthUserId(event.getAuthUserId())
                                 .orElseThrow(() -> new ApiException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Профиль диспетчера не найден"));
+                                        HttpStatus.NOT_FOUND, "Профиль диспетчера не найден"));
 
                 if (event.getEmployeeNumber() == null
                         || event.getEmployeeNumber().isBlank()) {
@@ -728,9 +792,15 @@ public class UserProfileService {
                 dispatcherRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=DISPATCHER",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} role=DISPATCHER",
+                        profile.getId()
+                );
+
+                auditService.logSystemSuccess(
+                        "USER_PROFILE_UPDATED_FROM_AUTH",
+                        "DISPATCHER_PROFILE",
                         profile.getId(),
-                        event.getAuthUserId()
+                        "operation=UPDATE_FROM_AUTH;role=DISPATCHER"
                 );
             }
 
@@ -738,8 +808,7 @@ public class UserProfileService {
                 AdminProfile profile =
                         adminRepository.findByAuthUserId(event.getAuthUserId())
                                 .orElseThrow(() -> new ApiException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Профиль администратора не найден"));
+                                        HttpStatus.NOT_FOUND, "Профиль администратора не найден"));
 
                 if (event.getEmployeeNumber() == null
                         || event.getEmployeeNumber().isBlank()) {
@@ -760,9 +829,15 @@ public class UserProfileService {
                 adminRepository.save(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=ADMIN",
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} role=ADMIN",
+                        profile.getId()
+                );
+
+                auditService.logSystemSuccess(
+                        "USER_PROFILE_UPDATED_FROM_AUTH",
+                        "ADMIN_PROFILE",
                         profile.getId(),
-                        event.getAuthUserId()
+                        "operation=UPDATE_FROM_AUTH;role=ADMIN"
                 );
             }
 
@@ -791,9 +866,15 @@ public class UserProfileService {
                 userRepository.delete(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=CLIENT",
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} role=CLIENT",
+                        profileId
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_DELETED",
+                        "USER_PROFILE",
                         profileId,
-                        authUserId
+                        "operation=DELETE;role=CLIENT"
                 );
             }
 
@@ -810,9 +891,15 @@ public class UserProfileService {
                 masterRepository.delete(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=ENGINEER",
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} role=ENGINEER",
+                        profileId
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_DELETED",
+                        "MASTER_PROFILE",
                         profileId,
-                        authUserId
+                        "operation=DELETE;role=ENGINEER"
                 );
             }
 
@@ -829,9 +916,15 @@ public class UserProfileService {
                 dispatcherRepository.delete(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=DISPATCHER",
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} role=DISPATCHER",
+                        profileId
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_DELETED",
+                        "DISPATCHER_PROFILE",
                         profileId,
-                        authUserId
+                        "operation=DELETE;role=DISPATCHER"
                 );
             }
 
@@ -847,9 +940,15 @@ public class UserProfileService {
                 adminRepository.delete(profile);
 
                 log.info(
-                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=ADMIN",
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} role=ADMIN",
+                        profileId
+                );
+
+                auditService.logSuccess(
+                        "USER_PROFILE_DELETED",
+                        "ADMIN_PROFILE",
                         profileId,
-                        authUserId
+                        "operation=DELETE;role=ADMIN"
                 );
             }
 

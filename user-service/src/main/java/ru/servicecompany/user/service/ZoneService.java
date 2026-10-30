@@ -34,6 +34,7 @@ public class ZoneService {
     private final StreetRepository streetRepository;
     private final MasterProfileRepository masterProfileRepository;
     private final MasterZoneRepository masterZoneRepository;
+    private final AuditService auditService;
 
     /**
      * Создать зону.
@@ -45,6 +46,13 @@ public class ZoneService {
         zone.setDescription(request.getDescription());
 
         Zone savedZone = zoneRepository.save(zone);
+
+        auditService.logSuccess(
+                "ZONE_CREATED",
+                "ZONE",
+                savedZone.getId(),
+                "operation=CREATE"
+        );
 
         log.info(
                 "BUSINESS_EVENT event=ZONE_CREATED zoneId={} zoneName={}",
@@ -77,18 +85,21 @@ public class ZoneService {
                         "Зона не найдена"
                 ));
 
-        String previousName = zone.getName();
-
         zone.setName(request.getName());
         zone.setDescription(request.getDescription());
 
         Zone savedZone = zoneRepository.save(zone);
 
-        log.info(
-                "BUSINESS_EVENT event=ZONE_UPDATED zoneId={} previousName={} newName={}",
+        auditService.logSuccess(
+                "ZONE_UPDATED",
+                "ZONE",
                 savedZone.getId(),
-                previousName,
-                savedZone.getName()
+                "operation=UPDATE"
+        );
+
+        log.info(
+                "BUSINESS_EVENT event=ZONE_UPDATED zoneId={}",
+                savedZone.getId()
         );
 
         return map(savedZone);
@@ -121,14 +132,18 @@ public class ZoneService {
             );
         }
 
-        String zoneName = zone.getName();
-
         zoneRepository.delete(zone);
 
-        log.info(
-                "BUSINESS_EVENT event=ZONE_DELETED zoneId={} zoneName={}",
+        auditService.logSuccess(
+                "ZONE_DELETED",
+                "ZONE",
                 id,
-                zoneName
+                "operation=DELETE"
+        );
+
+        log.info(
+                "BUSINESS_EVENT event=ZONE_DELETED zoneId={}",
+                id
         );
     }
 
@@ -235,6 +250,15 @@ public class ZoneService {
                 .map(zonesById::get)
                 .map(this::map)
                 .toList();
+
+        auditService.logSuccess(
+                "MASTER_ZONES_UPDATED",
+                "MASTER_PROFILE",
+                master.getId(),
+                "addedCount=" + assignmentsToCreate.size()
+                        + "; removedCount=" + assignmentsToDelete.size()
+                        + "; totalCount=" + result.size()
+        );
 
         log.info(
                 "BUSINESS_EVENT event=MASTER_ZONES_UPDATED masterId={} addedCount={} removedCount={} totalCount={}",

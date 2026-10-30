@@ -47,6 +47,7 @@ public class WorkReportService {
     private final ServiceRequestRepository serviceRequestRepository;
     private final RequestService requestService;
     private final WorkReportPdfService workReportPdfService;
+    private final AuditService auditService;
 
     /**
      * Создание или сохранение черновика отчёта мастера.
@@ -95,6 +96,15 @@ public class WorkReportService {
         }
 
         WorkReport savedReport = workReportRepository.save(report);
+
+        auditService.logSuccess(
+                "WORK_REPORT_DRAFT_SAVED",
+                "WORK_REPORT",
+                savedReport.getId(),
+                "requestId=" + requestId
+                        + "; previousReportStatus=" + previousReportStatus
+                        + "; newReportStatus=" + savedReport.getStatus()
+        );
 
         log.info(
                 "BUSINESS_EVENT event=WORK_REPORT_DRAFT_SAVED requestId={} reportId={} masterId={} previousReportStatus={} newReportStatus={} requestStatus={}",
@@ -170,6 +180,14 @@ public class WorkReportService {
 
         workReportAttachmentRepository.delete(attachment);
 
+        auditService.logSuccess(
+                "WORK_REPORT_ATTACHMENT_DELETED",
+                "WORK_REPORT",
+                report.getId(),
+                "requestId=" + requestId
+                        + "; attachmentId=" + attachmentId
+        );
+
         log.info(
                 "BUSINESS_EVENT event=WORK_REPORT_ATTACHMENT_DELETED requestId={} reportId={} attachmentId={} masterId={}",
                 requestId,
@@ -240,6 +258,17 @@ public class WorkReportService {
 
         WorkReport savedReport = workReportRepository.save(report);
 
+        auditService.logSuccess(
+                "WORK_REPORT_SUBMITTED",
+                "WORK_REPORT",
+                savedReport.getId(),
+                "requestId=" + requestId
+                        + "; previousRequestStatus=" + previousRequestStatus
+                        + "; newRequestStatus=" + request.getStatus()
+                        + "; previousReportStatus=" + previousReportStatus
+                        + "; newReportStatus=" + savedReport.getStatus()
+        );
+
         log.info(
                 "BUSINESS_EVENT event=WORK_REPORT_SUBMITTED requestId={} reportId={} masterId={} previousRequestStatus={} newRequestStatus={} previousReportStatus={} newReportStatus={}",
                 requestId,
@@ -299,6 +328,17 @@ public class WorkReportService {
         serviceRequestRepository.save(request);
 
         WorkReport savedReport = workReportRepository.save(report);
+
+        auditService.logSuccess(
+                "WORK_ACCEPTED_BY_CLIENT",
+                "WORK_REPORT",
+                savedReport.getId(),
+                "requestId=" + requestId
+                        + "; previousRequestStatus=" + previousRequestStatus
+                        + "; newRequestStatus=" + request.getStatus()
+                        + "; previousReportStatus=" + previousReportStatus
+                        + "; newReportStatus=" + savedReport.getStatus()
+        );
 
         log.info(
                 "BUSINESS_EVENT event=WORK_ACCEPTED_BY_CLIENT requestId={} reportId={} clientId={} masterId={} previousRequestStatus={} newRequestStatus={} previousReportStatus={} newReportStatus={}",
@@ -378,6 +418,17 @@ public class WorkReportService {
         serviceRequestRepository.save(request);
 
         WorkReport savedReport = workReportRepository.save(report);
+
+        auditService.logSuccess(
+                "WORK_RETURNED_FOR_REWORK",
+                "WORK_REPORT",
+                savedReport.getId(),
+                "requestId=" + requestId
+                        + "; previousRequestStatus=" + previousRequestStatus
+                        + "; newRequestStatus=" + request.getStatus()
+                        + "; previousReportStatus=" + previousReportStatus
+                        + "; newReportStatus=" + savedReport.getStatus()
+        );
 
         log.warn(
                 "BUSINESS_EVENT event=WORK_RETURNED_FOR_REWORK requestId={} reportId={} clientId={} masterId={} previousRequestStatus={} newRequestStatus={} previousReportStatus={} newReportStatus={}",
@@ -482,6 +533,16 @@ public class WorkReportService {
 
             WorkReportAttachment saved =
                     workReportAttachmentRepository.save(attachment);
+
+            auditService.logSuccess(
+                    "WORK_REPORT_ATTACHMENT_UPLOADED",
+                    "WORK_REPORT",
+                    report.getId(),
+                    "requestId=" + requestId
+                            + "; attachmentId=" + saved.getId()
+                            + "; contentType=" + saved.getContentType()
+                            + "; sizeBytes=" + saved.getSizeBytes()
+            );
 
             log.info(
                     "BUSINESS_EVENT event=WORK_REPORT_ATTACHMENT_UPLOADED requestId={} reportId={} attachmentId={} masterId={} contentType={} sizeBytes={}",

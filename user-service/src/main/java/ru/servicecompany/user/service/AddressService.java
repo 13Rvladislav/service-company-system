@@ -30,6 +30,7 @@ public class AddressService {
     private final HouseRepository houseRepository;
     private final ZoneRepository zoneRepository;
     private final UserProfileRepository userProfileRepository;
+    private final AuditService auditService;
 
     // =========================
     // CITY
@@ -54,9 +55,15 @@ public class AddressService {
         City savedCity = cityRepository.save(city);
 
         log.info(
-                "BUSINESS_EVENT event=CITY_CREATED cityId={} cityName={}",
+                "BUSINESS_EVENT event=CITY_CREATED cityId={}",
+                savedCity.getId()
+        );
+
+        auditService.logSuccess(
+                "CITY_CREATED",
+                "CITY",
                 savedCity.getId(),
-                savedCity.getName()
+                "operation=CREATE"
         );
 
         return map(savedCity);
@@ -85,17 +92,20 @@ public class AddressService {
                         "Город не найден"
                 ));
 
-        String previousName = city.getName();
-
         city.setName(request.getName());
 
         City savedCity = cityRepository.save(city);
 
         log.info(
-                "BUSINESS_EVENT event=CITY_UPDATED cityId={} previousName={} newName={}",
+                "BUSINESS_EVENT event=CITY_UPDATED cityId={}",
+                savedCity.getId()
+        );
+
+        auditService.logSuccess(
+                "CITY_UPDATED",
+                "CITY",
                 savedCity.getId(),
-                previousName,
-                savedCity.getName()
+                "operation=UPDATE"
         );
 
         return map(savedCity);
@@ -120,14 +130,18 @@ public class AddressService {
             );
         }
 
-        String cityName = city.getName();
-
         cityRepository.delete(city);
 
         log.info(
-                "BUSINESS_EVENT event=CITY_DELETED cityId={} cityName={}",
+                "BUSINESS_EVENT event=CITY_DELETED cityId={}",
+                id
+        );
+
+        auditService.logSuccess(
+                "CITY_DELETED",
+                "CITY",
                 id,
-                cityName
+                "operation=DELETE"
         );
     }
 
@@ -167,6 +181,14 @@ public class AddressService {
                 zone.getId()
         );
 
+        auditService.logSuccess(
+                "STREET_CREATED",
+                "STREET",
+                savedStreet.getId(),
+                "operation=CREATE;cityId=" + city.getId()
+                        + ";zoneId=" + zone.getId()
+        );
+
         return map(savedStreet);
     }
 
@@ -203,9 +225,6 @@ public class AddressService {
                         "Улица не найдена"
                 ));
 
-        String previousName = street.getName();
-        UUID previousZoneId = street.getZone().getId();
-
         Zone zone = zoneRepository.findById(request.getZoneId())
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
@@ -218,13 +237,18 @@ public class AddressService {
         Street savedStreet = streetRepository.save(street);
 
         log.info(
-                "BUSINESS_EVENT event=STREET_UPDATED streetId={} cityId={} previousName={} newName={} previousZoneId={} newZoneId={}",
+                "BUSINESS_EVENT event=STREET_UPDATED streetId={} cityId={} zoneId={}",
                 savedStreet.getId(),
                 savedStreet.getCity().getId(),
-                previousName,
-                savedStreet.getName(),
-                previousZoneId,
                 zone.getId()
+        );
+
+        auditService.logSuccess(
+                "STREET_UPDATED",
+                "STREET",
+                savedStreet.getId(),
+                "operation=UPDATE;cityId=" + savedStreet.getCity().getId()
+                        + ";zoneId=" + zone.getId()
         );
 
         return map(savedStreet);
@@ -258,6 +282,13 @@ public class AddressService {
                 id,
                 cityId
         );
+
+        auditService.logSuccess(
+                "STREET_DELETED",
+                "STREET",
+                id,
+                "operation=DELETE;cityId=" + cityId
+        );
     }
 
     // =========================
@@ -287,6 +318,14 @@ public class AddressService {
                 savedHouse.getId(),
                 street.getId(),
                 street.getCity().getId()
+        );
+
+        auditService.logSuccess(
+                "HOUSE_CREATED",
+                "HOUSE",
+                savedHouse.getId(),
+                "operation=CREATE;streetId=" + street.getId()
+                        + ";cityId=" + street.getCity().getId()
         );
 
         return map(savedHouse);
@@ -325,18 +364,21 @@ public class AddressService {
                         "Дом не найден"
                 ));
 
-        String previousNumber = house.getNumber();
-
         house.setNumber(request.getNumber());
 
         House savedHouse = houseRepository.save(house);
 
         log.info(
-                "BUSINESS_EVENT event=HOUSE_UPDATED houseId={} streetId={} previousNumber={} newNumber={}",
+                "BUSINESS_EVENT event=HOUSE_UPDATED houseId={} streetId={}",
                 savedHouse.getId(),
-                savedHouse.getStreet().getId(),
-                previousNumber,
-                savedHouse.getNumber()
+                savedHouse.getStreet().getId()
+        );
+
+        auditService.logSuccess(
+                "HOUSE_UPDATED",
+                "HOUSE",
+                savedHouse.getId(),
+                "operation=UPDATE;streetId=" + savedHouse.getStreet().getId()
         );
 
         return map(savedHouse);
@@ -369,6 +411,13 @@ public class AddressService {
                 "BUSINESS_EVENT event=HOUSE_DELETED houseId={} streetId={}",
                 id,
                 streetId
+        );
+
+        auditService.logSuccess(
+                "HOUSE_DELETED",
+                "HOUSE",
+                id,
+                "operation=DELETE;streetId=" + streetId
         );
     }
 

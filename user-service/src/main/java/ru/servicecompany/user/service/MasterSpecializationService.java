@@ -26,6 +26,7 @@ public class MasterSpecializationService {
 
     private final MasterSpecializationRepository repository;
     private final MasterProfileRepository masterProfileRepository;
+    private final AuditService auditService;
 
     @Transactional
     public SpecializationResponse create(CreateSpecializationRequest request) {
@@ -46,7 +47,16 @@ public class MasterSpecializationService {
         specialization.setName(name);
         specialization.setEquipmentTypeIds(equipmentTypeIds);
 
-        return map(repository.save(specialization));
+        MasterSpecialization saved = repository.save(specialization);
+
+        auditService.logSuccess(
+                "SPECIALIZATION_CREATED",
+                "MASTER_SPECIALIZATION",
+                saved.getId(),
+                "operation=CREATE;equipmentTypeCount=" + equipmentTypeIds.size()
+        );
+
+        return map(saved);
     }
 
     @Transactional(readOnly = true)
@@ -96,13 +106,30 @@ public class MasterSpecializationService {
         specialization.setName(name);
         specialization.setEquipmentTypeIds(equipmentTypeIds);
 
-        return map(repository.save(specialization));
+        MasterSpecialization saved = repository.save(specialization);
+
+        auditService.logSuccess(
+                "SPECIALIZATION_UPDATED",
+                "MASTER_SPECIALIZATION",
+                saved.getId(),
+                "operation=UPDATE;equipmentTypeCount=" + equipmentTypeIds.size()
+        );
+
+        return map(saved);
     }
 
     @Transactional
     public void delete(UUID id) {
         MasterSpecialization specialization = findById(id);
+
         repository.delete(specialization);
+
+        auditService.logSuccess(
+                "SPECIALIZATION_DELETED",
+                "MASTER_SPECIALIZATION",
+                id,
+                "operation=DELETE"
+        );
     }
 
     @Transactional(readOnly = true)
@@ -154,6 +181,14 @@ public class MasterSpecializationService {
         master.setSpecializations(new HashSet<>(found));
 
         MasterProfile saved = masterProfileRepository.save(master);
+
+        auditService.logSuccess(
+                "MASTER_SPECIALIZATIONS_UPDATED",
+                "MASTER_PROFILE",
+                masterId,
+                "operation=ASSIGN_SPECIALIZATIONS;specializationCount="
+                        + saved.getSpecializations().size()
+        );
 
         return saved.getSpecializations()
                 .stream()

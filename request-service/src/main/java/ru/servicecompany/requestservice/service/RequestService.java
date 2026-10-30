@@ -33,6 +33,7 @@ public class RequestService {
             masterAssignmentCandidatesRequestService;
     private final ProfileRequestService profileRequestService;
     private final RequestStatusTransitionService requestStatusTransitionService;
+    private final AuditService auditService;
 
     /**
      * Создание заявки клиентом с автоматическим назначением мастера.
@@ -116,6 +117,32 @@ public class RequestService {
 
         ServiceRequest savedRequest =
                 serviceRequestRepository.save(serviceRequest);
+
+        auditService.logSuccess(
+                "REQUEST_CREATED",
+                "SERVICE_REQUEST",
+                savedRequest.getId(),
+                "status=" + savedRequest.getStatus()
+                        + "; assignmentMode=AUTO"
+        );
+
+        if (masterId != null) {
+            auditService.logSystemSuccess(
+                    "MASTER_AUTO_ASSIGNED",
+                    "SERVICE_REQUEST",
+                    savedRequest.getId(),
+                    "masterId=" + masterId
+                            + "; status=" + savedRequest.getStatus()
+            );
+        } else {
+            auditService.logSystemSuccess(
+                    "MASTER_AUTO_ASSIGNMENT_FAILED",
+                    "SERVICE_REQUEST",
+                    savedRequest.getId(),
+                    "reason=NO_AVAILABLE_CANDIDATES"
+                            + "; status=" + savedRequest.getStatus()
+            );
+        }
 
         log.info(
                 "BUSINESS_EVENT event=REQUEST_CREATED requestId={} clientId={} status={}",
@@ -416,6 +443,14 @@ public class RequestService {
         ServiceRequest savedRequest =
                 serviceRequestRepository.save(request);
 
+        auditService.logSuccess(
+                "MASTER_ACCEPTED_REQUEST",
+                "SERVICE_REQUEST",
+                savedRequest.getId(),
+                "previousStatus=" + previousStatus
+                        + "; newStatus=" + savedRequest.getStatus()
+        );
+
         log.info(
                 "BUSINESS_EVENT event=MASTER_ACCEPTED_REQUEST requestId={} masterId={} previousStatus={} newStatus={}",
                 requestId,
@@ -455,6 +490,14 @@ public class RequestService {
 
         ServiceRequest savedRequest =
                 serviceRequestRepository.save(request);
+
+        auditService.logSuccess(
+                "MASTER_REJECTED_REQUEST",
+                "SERVICE_REQUEST",
+                savedRequest.getId(),
+                "previousStatus=" + previousStatus
+                        + "; newStatus=" + savedRequest.getStatus()
+        );
 
         log.warn(
                 "BUSINESS_EVENT event=MASTER_REJECTED_REQUEST requestId={} masterId={} previousStatus={} newStatus={}",
@@ -514,8 +557,6 @@ public class RequestService {
             );
         }
 
-        RequestStatus currentStatus = request.getStatus();
-
         request.setProblemDescription(
                 update.problemDescription().trim()
         );
@@ -530,6 +571,13 @@ public class RequestService {
 
         ServiceRequest savedRequest =
                 serviceRequestRepository.save(request);
+
+        auditService.logSuccess(
+                "REQUEST_UPDATED",
+                "SERVICE_REQUEST",
+                savedRequest.getId(),
+                "status=" + savedRequest.getStatus()
+        );
 
         log.info(
                 "BUSINESS_EVENT event=REQUEST_UPDATED requestId={} clientId={} status={}",
@@ -565,6 +613,15 @@ public class RequestService {
 
         ServiceRequest savedRequest =
                 serviceRequestRepository.save(request);
+
+        auditService.logSuccess(
+                "REQUEST_CANCELLED",
+                "SERVICE_REQUEST",
+                savedRequest.getId(),
+                "previousStatus=" + previousStatus
+                        + "; newStatus=" + savedRequest.getStatus()
+                        + "; cancelledBy=CLIENT"
+        );
 
         log.info(
                 "BUSINESS_EVENT event=REQUEST_CANCELLED requestId={} clientId={} previousStatus={} newStatus={} cancelledBy=CLIENT",
@@ -683,6 +740,15 @@ public class RequestService {
         ServiceRequest savedRequest =
                 serviceRequestRepository.save(request);
 
+        auditService.logSuccess(
+                "REQUEST_CANCELLED",
+                "SERVICE_REQUEST",
+                savedRequest.getId(),
+                "previousStatus=" + previousStatus
+                        + "; newStatus=" + savedRequest.getStatus()
+                        + "; cancelledBy=DISPATCHER_OR_ADMIN"
+        );
+
         log.warn(
                 "BUSINESS_EVENT event=REQUEST_CANCELLED requestId={} previousStatus={} newStatus={} cancelledBy=DISPATCHER_OR_ADMIN",
                 requestId,
@@ -797,6 +863,16 @@ public class RequestService {
         String event = previousMasterId == null
                 ? "MASTER_ASSIGNED_MANUALLY"
                 : "MASTER_REASSIGNED_MANUALLY";
+
+        auditService.logSuccess(
+                event,
+                "SERVICE_REQUEST",
+                savedRequest.getId(),
+                "previousMasterId=" + previousMasterId
+                        + "; newMasterId=" + masterId
+                        + "; previousStatus=" + previousStatus
+                        + "; newStatus=" + savedRequest.getStatus()
+        );
 
         log.info(
                 "BUSINESS_EVENT event={} requestId={} previousMasterId={} newMasterId={} previousStatus={} newStatus={}",
