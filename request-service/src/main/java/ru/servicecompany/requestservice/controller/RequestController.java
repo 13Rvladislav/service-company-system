@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-
 import ru.servicecompany.requestservice.config.JwtUserPrincipal;
 import ru.servicecompany.requestservice.dto.request.AssignMasterRequest;
 import ru.servicecompany.requestservice.dto.request.CreateRequestRequest;
@@ -182,12 +181,7 @@ public class RequestController {
             @AuthenticationPrincipal JwtUserPrincipal principal
     ) {
         requireEngineer(principal);
-        System.out.println(
-                "JWT userId = " + principal.userId()
-        );
-        System.out.println(
-                "JWT role = " + principal.role()
-        );
+
         return requestService.getMasterRequests(
                 principal.userId()
         );

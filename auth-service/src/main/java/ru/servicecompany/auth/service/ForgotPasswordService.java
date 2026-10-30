@@ -1,6 +1,8 @@
+
 package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import ru.servicecompany.auth.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ForgotPasswordService {
@@ -33,8 +36,12 @@ public class ForgotPasswordService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElse(null);
 
-        // Не раскрываем существует ли email
+        // Не раскрываем существует ли email.
         if (user == null) {
+            log.info(
+                    "BUSINESS_EVENT event=PASSWORD_RESET_REQUEST_IGNORED reason=USER_NOT_FOUND"
+            );
+
             return new MessageResponse(
                     "Если аккаунт существует, инструкция отправлена на почту"
             );
@@ -54,6 +61,11 @@ public class ForgotPasswordService {
 
         emailService.sendResetPasswordEmail(user.getEmail(), token);
 
+        log.info(
+                "BUSINESS_EVENT event=PASSWORD_RESET_REQUESTED userId={}",
+                user.getId()
+        );
+
         return new MessageResponse(
                 "Если аккаунт существует, инструкция отправлена на почту"
         );
@@ -66,14 +78,23 @@ public class ForgotPasswordService {
 
         PasswordResetToken resetToken = tokenRepository
                 .findByToken(request.getToken())
-                .orElseThrow(() ->
-                        new ApiException(
-                                HttpStatus.BAD_REQUEST,
-                                "Недействительный токен"
-                        )
-                );
+                .orElseThrow(() -> {
+                    log.warn(
+                            "BUSINESS_EVENT event=PASSWORD_RESET_FAILED reason=INVALID_TOKEN"
+                    );
+
+                    return new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "Недействительный токен"
+                    );
+                });
 
         if (resetToken.getUsed()) {
+            log.warn(
+                    "BUSINESS_EVENT event=PASSWORD_RESET_FAILED userId={} reason=TOKEN_ALREADY_USED",
+                    resetToken.getUser().getId()
+            );
+
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Токен уже использован"
@@ -81,6 +102,11 @@ public class ForgotPasswordService {
         }
 
         if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn(
+                    "BUSINESS_EVENT event=PASSWORD_RESET_FAILED userId={} reason=TOKEN_EXPIRED",
+                    resetToken.getUser().getId()
+            );
+
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Срок действия токена истёк"
@@ -98,6 +124,11 @@ public class ForgotPasswordService {
         resetToken.setUsed(true);
 
         tokenRepository.save(resetToken);
+
+        log.info(
+                "BUSINESS_EVENT event=PASSWORD_RESET_SUCCEEDED userId={}",
+                user.getId()
+        );
 
         return new MessageResponse("Пароль успешно изменён");
     }

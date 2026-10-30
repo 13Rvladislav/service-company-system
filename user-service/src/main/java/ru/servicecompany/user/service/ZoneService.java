@@ -2,6 +2,7 @@
 package ru.servicecompany.user.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +23,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ZoneService {
@@ -35,12 +38,21 @@ public class ZoneService {
     /**
      * Создать зону.
      */
+    @Transactional
     public ZoneResponse create(CreateZoneRequest request) {
         Zone zone = new Zone();
         zone.setName(request.getName());
         zone.setDescription(request.getDescription());
 
-        return map(zoneRepository.save(zone));
+        Zone savedZone = zoneRepository.save(zone);
+
+        log.info(
+                "BUSINESS_EVENT event=ZONE_CREATED zoneId={} zoneName={}",
+                savedZone.getId(),
+                savedZone.getName()
+        );
+
+        return map(savedZone);
     }
 
     /**
@@ -65,10 +77,21 @@ public class ZoneService {
                         "Зона не найдена"
                 ));
 
+        String previousName = zone.getName();
+
         zone.setName(request.getName());
         zone.setDescription(request.getDescription());
 
-        return map(zoneRepository.save(zone));
+        Zone savedZone = zoneRepository.save(zone);
+
+        log.info(
+                "BUSINESS_EVENT event=ZONE_UPDATED zoneId={} previousName={} newName={}",
+                savedZone.getId(),
+                previousName,
+                savedZone.getName()
+        );
+
+        return map(savedZone);
     }
 
     /**
@@ -98,7 +121,15 @@ public class ZoneService {
             );
         }
 
+        String zoneName = zone.getName();
+
         zoneRepository.delete(zone);
+
+        log.info(
+                "BUSINESS_EVENT event=ZONE_DELETED zoneId={} zoneName={}",
+                id,
+                zoneName
+        );
     }
 
     /**
@@ -114,7 +145,6 @@ public class ZoneService {
                 .map(this::map)
                 .toList();
     }
-
 
     /**
      * Полностью обновить список зон мастера.
@@ -171,7 +201,7 @@ public class ZoneService {
         // ID уже назначенных зон.
         Set<UUID> currentZoneIds = currentAssignments.stream()
                 .map(assignment -> assignment.getZone().getId())
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
         // Удаляем только те назначения, которые пользователь снял.
         List<MasterZone> assignmentsToDelete = currentAssignments.stream()
@@ -196,16 +226,27 @@ public class ZoneService {
 
         // Возвращаем зоны в том порядке, в котором они были выбраны.
         java.util.Map<UUID, Zone> zonesById = zones.stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         Zone::getId,
                         zone -> zone
                 ));
 
-        return zoneIds.stream()
+        List<ZoneResponse> result = zoneIds.stream()
                 .map(zonesById::get)
                 .map(this::map)
                 .toList();
+
+        log.info(
+                "BUSINESS_EVENT event=MASTER_ZONES_UPDATED masterId={} addedCount={} removedCount={} totalCount={}",
+                master.getId(),
+                assignmentsToCreate.size(),
+                assignmentsToDelete.size(),
+                result.size()
+        );
+
+        return result;
     }
+
     /**
      * Найти профиль мастера по ID профиля
      * или по authUserId из auth-service.

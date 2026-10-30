@@ -2,6 +2,7 @@
 package ru.servicecompany.requestservice.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RequestService {
@@ -112,14 +114,38 @@ public class RequestService {
             serviceRequest.setStatus(RequestStatus.ASSIGNED);
         }
 
-        return toResponse(
-                serviceRequestRepository.save(serviceRequest)
+        ServiceRequest savedRequest =
+                serviceRequestRepository.save(serviceRequest);
+
+        log.info(
+                "BUSINESS_EVENT event=REQUEST_CREATED requestId={} clientId={} status={}",
+                savedRequest.getId(),
+                clientId,
+                savedRequest.getStatus()
         );
+
+        if (masterId != null) {
+            log.info(
+                    "BUSINESS_EVENT event=MASTER_AUTO_ASSIGNED requestId={} masterId={} zoneId={}",
+                    savedRequest.getId(),
+                    masterId,
+                    savedRequest.getZoneId()
+            );
+        } else {
+            log.warn(
+                    "BUSINESS_EVENT event=MASTER_AUTO_ASSIGNMENT_FAILED requestId={} zoneId={} equipmentTypeId={} reason=NO_AVAILABLE_CANDIDATES",
+                    savedRequest.getId(),
+                    savedRequest.getZoneId(),
+                    equipment.getEquipmentTypeId()
+            );
+        }
+
+        return toResponse(savedRequest);
     }
 
     /**
      * Подробная карточка заявки.
-     * <p>
+     *
      * CLIENT: только собственная заявка.
      * ENGINEER: только заявка, назначенная текущему мастеру.
      * DISPATCHER и ADMIN: любая заявка.
@@ -334,26 +360,13 @@ public class RequestService {
 
     /**
      * Список заявок, назначенных текущему мастеру.
-     * <p>
-     * В список попадают его заявки, которые назначены,
-     * находятся в работе или ожидают последующих действий.
      */
     @Transactional(readOnly = true)
     public List<ManagementRequestResponse> getMasterRequests(UUID masterId) {
-        System.out.println("MASTER ID FROM JWT: " + masterId);
-
         List<ServiceRequest> requests =
                 serviceRequestRepository.findAllByMasterId(masterId);
 
-        System.out.println("REQUESTS FOUND BY MASTER ID: " + requests.size());
-
-        requests.forEach(request -> System.out.println(
-                "REQUEST ID: " + request.getId()
-                        + ", MASTER ID IN DB: " + request.getMasterId()
-                        + ", STATUS: " + request.getStatus()
-        ));
-
-        return requests.stream()
+        List<ManagementRequestResponse> result = requests.stream()
                 .filter(request ->
                         request.getStatus() == RequestStatus.ASSIGNED
                                 || request.getStatus() == RequestStatus.IN_PROGRESS
@@ -366,15 +379,21 @@ public class RequestService {
                         request.getStatus()
                 ))
                 .toList();
+
+        log.debug(
+                "Master requests retrieved: masterId={}, total={}, visible={}",
+                masterId,
+                requests.size(),
+                result.size()
+        );
+
+        return result;
     }
 
     /**
      * Принятие заявки мастером.
-     * <p>
-     * Разрешено только назначенному мастеру
-     * и только при статусе ASSIGNED.
-     * <p>
-     * После принятия статус становится IN_PROGRESS.
+     *
+     * ASSIGNED -> IN_PROGRESS.
      */
     @Transactional
     public RequestResponse acceptAssignedRequest(
@@ -385,21 +404,34 @@ public class RequestService {
 
         checkAssignedMasterAndStatus(request, masterId);
 
+        RequestStatus previousStatus = request.getStatus();
+
         request.setStatus(
                 requestStatusTransitionService.transition(
-                        request.getStatus(),
+                        previousStatus,
                         RequestStatus.IN_PROGRESS
                 )
         );
 
-        return toResponse(serviceRequestRepository.save(request));
+        ServiceRequest savedRequest =
+                serviceRequestRepository.save(request);
+
+        log.info(
+                "BUSINESS_EVENT event=MASTER_ACCEPTED_REQUEST requestId={} masterId={} previousStatus={} newStatus={}",
+                requestId,
+                masterId,
+                previousStatus,
+                savedRequest.getStatus()
+        );
+
+        return toResponse(savedRequest);
     }
 
     /**
      * Отклонение назначения мастером.
-     * <p>
-     * Автоматически другого мастера не назначаем.
-     * Очищаем masterId и переводим заявку в WAITING_FOR_ASSIGNMENT.
+     *
+     * ASSIGNED -> WAITING_FOR_ASSIGNMENT.
+     * masterId -> null.
      */
     @Transactional
     public RequestResponse rejectAssignedRequest(
@@ -410,16 +442,29 @@ public class RequestService {
 
         checkAssignedMasterAndStatus(request, masterId);
 
+        RequestStatus previousStatus = request.getStatus();
+
         RequestStatus newStatus =
                 requestStatusTransitionService.transition(
-                        request.getStatus(),
+                        previousStatus,
                         RequestStatus.WAITING_FOR_ASSIGNMENT
                 );
 
         request.setMasterId(null);
         request.setStatus(newStatus);
 
-        return toResponse(serviceRequestRepository.save(request));
+        ServiceRequest savedRequest =
+                serviceRequestRepository.save(request);
+
+        log.warn(
+                "BUSINESS_EVENT event=MASTER_REJECTED_REQUEST requestId={} masterId={} previousStatus={} newStatus={}",
+                requestId,
+                masterId,
+                previousStatus,
+                savedRequest.getStatus()
+        );
+
+        return toResponse(savedRequest);
     }
 
     /**
@@ -469,6 +514,8 @@ public class RequestService {
             );
         }
 
+        RequestStatus currentStatus = request.getStatus();
+
         request.setProblemDescription(
                 update.problemDescription().trim()
         );
@@ -481,9 +528,17 @@ public class RequestService {
                 update.preferredVisitAt()
         );
 
-        return toResponse(
-                serviceRequestRepository.save(request)
+        ServiceRequest savedRequest =
+                serviceRequestRepository.save(request);
+
+        log.info(
+                "BUSINESS_EVENT event=REQUEST_UPDATED requestId={} clientId={} status={}",
+                requestId,
+                clientId,
+                savedRequest.getStatus()
         );
+
+        return toResponse(savedRequest);
     }
 
     /**
@@ -499,16 +554,27 @@ public class RequestService {
         checkOwner(request, clientId);
         checkCanBeChanged(request);
 
+        RequestStatus previousStatus = request.getStatus();
+
         request.setStatus(
                 requestStatusTransitionService.transition(
-                        request.getStatus(),
+                        previousStatus,
                         RequestStatus.CANCELLED
                 )
         );
 
-        return toResponse(
-                serviceRequestRepository.save(request)
+        ServiceRequest savedRequest =
+                serviceRequestRepository.save(request);
+
+        log.info(
+                "BUSINESS_EVENT event=REQUEST_CANCELLED requestId={} clientId={} previousStatus={} newStatus={} cancelledBy=CLIENT",
+                requestId,
+                clientId,
+                previousStatus,
+                savedRequest.getStatus()
         );
+
+        return toResponse(savedRequest);
     }
 
     /**
@@ -610,11 +676,21 @@ public class RequestService {
     public RequestResponse cancelRequestByAdmin(UUID requestId) {
         ServiceRequest request = getRequestForUpdate(requestId);
 
+        RequestStatus previousStatus = request.getStatus();
+
         request.setStatus(RequestStatus.CANCELLED);
 
-        return toResponse(
-                serviceRequestRepository.save(request)
+        ServiceRequest savedRequest =
+                serviceRequestRepository.save(request);
+
+        log.warn(
+                "BUSINESS_EVENT event=REQUEST_CANCELLED requestId={} previousStatus={} newStatus={} cancelledBy=DISPATCHER_OR_ADMIN",
+                requestId,
+                previousStatus,
+                savedRequest.getStatus()
         );
+
+        return toResponse(savedRequest);
     }
 
     /**
@@ -640,10 +716,8 @@ public class RequestService {
                 .toList();
     }
 
-
     /**
      * Приоритет отображения заявок для диспетчера и администратора.
-     * Заявки, требующие оперативного действия, идут первыми.
      */
     private int getManagementPriority(RequestStatus status) {
         return switch (status) {
@@ -657,7 +731,6 @@ public class RequestService {
             case CANCELLED -> 7;
         };
     }
-
 
     /**
      * Ручное назначение или переназначение мастера.
@@ -712,12 +785,30 @@ public class RequestService {
             );
         }
 
+        UUID previousMasterId = request.getMasterId();
+        RequestStatus previousStatus = request.getStatus();
+
         request.setMasterId(masterId);
         request.setStatus(RequestStatus.ASSIGNED);
 
-        return toResponse(
-                serviceRequestRepository.save(request)
+        ServiceRequest savedRequest =
+                serviceRequestRepository.save(request);
+
+        String event = previousMasterId == null
+                ? "MASTER_ASSIGNED_MANUALLY"
+                : "MASTER_REASSIGNED_MANUALLY";
+
+        log.info(
+                "BUSINESS_EVENT event={} requestId={} previousMasterId={} newMasterId={} previousStatus={} newStatus={}",
+                event,
+                requestId,
+                previousMasterId,
+                masterId,
+                previousStatus,
+                savedRequest.getStatus()
         );
+
+        return toResponse(savedRequest);
     }
 
     /**

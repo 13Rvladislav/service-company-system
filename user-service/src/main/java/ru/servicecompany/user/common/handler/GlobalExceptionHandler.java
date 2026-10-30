@@ -1,76 +1,254 @@
+
 package ru.servicecompany.user.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import ru.servicecompany.user.common.response.ErrorResponse;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ErrorResponse> handleApiException(
-            ApiException ex,
+    public ResponseEntity<Map<String, Object>> handleApiException(
+            ApiException exception,
             HttpServletRequest request
     ) {
+        log.warn(
+                "API error: method={}, path={}, status={}, message={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception.getStatus().value(),
+                exception.getMessage()
+        );
 
-        ex.printStackTrace();
-
-        return ResponseEntity.status(ex.getStatus())
-                .body(ErrorResponse.builder()
-                        .timestamp(LocalDateTime.now())
-                        .status(ex.getStatus().value())
-                        .error(ex.getStatus().getReasonPhrase())
-                        .message(ex.getMessage())
-                        .path(request.getRequestURI())
-                        .build());
+        return buildResponse(
+                exception.getStatus(),
+                exception.getMessage(),
+                request
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationException(
-            MethodArgumentNotValidException ex,
+    public ResponseEntity<Map<String, Object>> handleValidationException(
+            MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
+        Map<String, String> errors = new LinkedHashMap<>();
 
-        String message = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .findFirst()
-                .map(error -> error.getField() + " : " + error.getDefaultMessage())
-                .orElse("Ошибка валидации");
+        exception.getBindingResult().getFieldErrors().forEach(error ->
+                errors.putIfAbsent(
+                        error.getField(),
+                        error.getDefaultMessage() != null
+                                ? error.getDefaultMessage()
+                                : "Некорректное значение"
+                )
+        );
 
-        ex.printStackTrace();
+        log.warn(
+                "Validation error: method={}, path={}, errors={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                errors
+        );
 
-        return ResponseEntity.badRequest()
-                .body(ErrorResponse.builder()
-                        .timestamp(LocalDateTime.now())
-                        .status(400)
-                        .error("Bad Request")
-                        .message(message)
-                        .path(request.getRequestURI())
-                        .build());
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Ошибка валидации входных данных",
+                request,
+                errors
+        );
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(
+            ConstraintViolationException exception,
+            HttpServletRequest request
+    ) {
+        Map<String, String> errors = new LinkedHashMap<>();
+
+        exception.getConstraintViolations().forEach(violation ->
+                errors.putIfAbsent(
+                        violation.getPropertyPath().toString(),
+                        violation.getMessage()
+                )
+        );
+
+        log.warn(
+                "Constraint violation: method={}, path={}, errors={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                errors
+        );
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Нарушены ограничения входных данных",
+                request,
+                errors
+        );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableBody(
+            HttpMessageNotReadableException exception,
+            HttpServletRequest request
+    ) {
+        log.warn(
+                "Invalid request body: method={}, path={}",
+                request.getMethod(),
+                request.getRequestURI()
+        );
+
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Некорректный формат тела запроса",
+                request
+        );
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParameter(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Не передан обязательный параметр: " + exception.getParameterName(),
+                request
+        );
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "HTTP-метод не поддерживается для данного endpoint",
+                request
+        );
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleResourceNotFound(
+            NoResourceFoundException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                "Запрашиваемый ресурс не найден",
+                request
+        );
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(
+            DataIntegrityViolationException exception,
+            HttpServletRequest request
+    ) {
+        log.error(
+                "Database constraint violation: method={}, path={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception
+        );
+
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "Операция нарушает ограничения базы данных",
+                request
+        );
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(
+            ResponseStatusException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
+
+        log.warn(
+                "HTTP error: method={}, path={}, status={}, message={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                status.value(),
+                exception.getReason()
+        );
+
+        return buildResponse(
+                status,
+                exception.getReason() != null
+                        ? exception.getReason()
+                        : status.getReasonPhrase(),
+                request
+        );
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(
-            Exception ex,
+    public ResponseEntity<Map<String, Object>> handleUnexpectedException(
+            Exception exception,
             HttpServletRequest request
     ) {
+        log.error(
+                "Unexpected error: method={}, path={}, query={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                request.getQueryString(),
+                exception
+        );
 
-        ex.printStackTrace();
+        return buildResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Внутренняя ошибка сервера",
+                request
+        );
+    }
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.builder()
-                        .timestamp(LocalDateTime.now())
-                        .status(500)
-                        .error("Internal Server Error")
-                        .message(ex.getClass().getSimpleName() + ": " + ex.getMessage())
-                        .path(request.getRequestURI())
-                        .build());
+    private ResponseEntity<Map<String, Object>> buildResponse(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request
+    ) {
+        return buildResponse(status, message, request, Map.of());
+    }
+
+    private ResponseEntity<Map<String, Object>> buildResponse(
+            HttpStatus status,
+            String message,
+            HttpServletRequest request,
+            Map<String, String> validationErrors
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", status.value());
+        body.put("error", status.getReasonPhrase());
+        body.put("message", message);
+        body.put("path", request.getRequestURI());
+        body.put("correlationId", MDC.get("correlationId"));
+
+        if (!validationErrors.isEmpty()) {
+            body.put("validationErrors", validationErrors);
+        }
+
+        return ResponseEntity.status(status).body(body);
     }
 }

@@ -2,6 +2,7 @@
 package ru.servicecompany.requestservice.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WorkReportService {
@@ -68,6 +70,8 @@ public class WorkReportService {
                 .findByRequestIdForUpdate(requestId)
                 .orElseGet(() -> createDraft(request, userId, role));
 
+        WorkReportStatus previousReportStatus = report.getStatus();
+
         if (report.getStatus() != WorkReportStatus.DRAFT
                 && report.getStatus() != WorkReportStatus.REWORK_REQUESTED) {
             throw new ApiException(
@@ -90,7 +94,19 @@ public class WorkReportService {
             report.setCompletedAt(input.completedAt());
         }
 
-        return toResponse(workReportRepository.save(report));
+        WorkReport savedReport = workReportRepository.save(report);
+
+        log.info(
+                "BUSINESS_EVENT event=WORK_REPORT_DRAFT_SAVED requestId={} reportId={} masterId={} previousReportStatus={} newReportStatus={} requestStatus={}",
+                requestId,
+                savedReport.getId(),
+                userId,
+                previousReportStatus,
+                savedReport.getStatus(),
+                request.getStatus()
+        );
+
+        return toResponse(savedReport);
     }
 
     /**
@@ -153,6 +169,14 @@ public class WorkReportService {
                         ));
 
         workReportAttachmentRepository.delete(attachment);
+
+        log.info(
+                "BUSINESS_EVENT event=WORK_REPORT_ATTACHMENT_DELETED requestId={} reportId={} attachmentId={} masterId={}",
+                requestId,
+                report.getId(),
+                attachmentId,
+                userId
+        );
     }
 
     /**
@@ -195,6 +219,9 @@ public class WorkReportService {
             );
         }
 
+        RequestStatus previousRequestStatus = request.getStatus();
+        WorkReportStatus previousReportStatus = report.getStatus();
+
         if (report.getCompletedAt() == null) {
             report.setCompletedAt(LocalDateTime.now());
         }
@@ -204,14 +231,27 @@ public class WorkReportService {
 
         request.setStatus(
                 requestStatusTransitionService.transition(
-                        request.getStatus(),
+                        previousRequestStatus,
                         RequestStatus.REPORT_SUBMITTED
                 )
         );
 
         serviceRequestRepository.save(request);
 
-        return toResponse(workReportRepository.save(report));
+        WorkReport savedReport = workReportRepository.save(report);
+
+        log.info(
+                "BUSINESS_EVENT event=WORK_REPORT_SUBMITTED requestId={} reportId={} masterId={} previousRequestStatus={} newRequestStatus={} previousReportStatus={} newReportStatus={}",
+                requestId,
+                savedReport.getId(),
+                userId,
+                previousRequestStatus,
+                request.getStatus(),
+                previousReportStatus,
+                savedReport.getStatus()
+        );
+
+        return toResponse(savedReport);
     }
 
     /**
@@ -244,18 +284,35 @@ public class WorkReportService {
             );
         }
 
+        RequestStatus previousRequestStatus = request.getStatus();
+        WorkReportStatus previousReportStatus = report.getStatus();
+
         report.setStatus(WorkReportStatus.ACCEPTED);
 
         request.setStatus(
                 requestStatusTransitionService.transition(
-                        request.getStatus(),
+                        previousRequestStatus,
                         RequestStatus.COMPLETED
                 )
         );
 
         serviceRequestRepository.save(request);
 
-        return toResponse(workReportRepository.save(report));
+        WorkReport savedReport = workReportRepository.save(report);
+
+        log.info(
+                "BUSINESS_EVENT event=WORK_ACCEPTED_BY_CLIENT requestId={} reportId={} clientId={} masterId={} previousRequestStatus={} newRequestStatus={} previousReportStatus={} newReportStatus={}",
+                requestId,
+                savedReport.getId(),
+                userId,
+                savedReport.getMasterId(),
+                previousRequestStatus,
+                request.getStatus(),
+                previousReportStatus,
+                savedReport.getStatus()
+        );
+
+        return toResponse(savedReport);
     }
 
     /**
@@ -305,19 +362,36 @@ public class WorkReportService {
             );
         }
 
+        RequestStatus previousRequestStatus = request.getStatus();
+        WorkReportStatus previousReportStatus = report.getStatus();
+
         report.setClientFeedback(normalizedReason);
         report.setStatus(WorkReportStatus.REWORK_REQUESTED);
 
         request.setStatus(
                 requestStatusTransitionService.transition(
-                        request.getStatus(),
+                        previousRequestStatus,
                         RequestStatus.REVISION_REQUIRED
                 )
         );
 
         serviceRequestRepository.save(request);
 
-        return toResponse(workReportRepository.save(report));
+        WorkReport savedReport = workReportRepository.save(report);
+
+        log.warn(
+                "BUSINESS_EVENT event=WORK_RETURNED_FOR_REWORK requestId={} reportId={} clientId={} masterId={} previousRequestStatus={} newRequestStatus={} previousReportStatus={} newReportStatus={}",
+                requestId,
+                savedReport.getId(),
+                userId,
+                savedReport.getMasterId(),
+                previousRequestStatus,
+                request.getStatus(),
+                previousReportStatus,
+                savedReport.getStatus()
+        );
+
+        return toResponse(savedReport);
     }
 
     /**
@@ -409,6 +483,16 @@ public class WorkReportService {
             WorkReportAttachment saved =
                     workReportAttachmentRepository.save(attachment);
 
+            log.info(
+                    "BUSINESS_EVENT event=WORK_REPORT_ATTACHMENT_UPLOADED requestId={} reportId={} attachmentId={} masterId={} contentType={} sizeBytes={}",
+                    requestId,
+                    report.getId(),
+                    saved.getId(),
+                    userId,
+                    saved.getContentType(),
+                    saved.getSizeBytes()
+            );
+
             return new WorkReportAttachmentResponse(
                     saved.getId(),
                     saved.getOriginalFileName(),
@@ -417,6 +501,13 @@ public class WorkReportService {
                     saved.getUploadedAt()
             );
         } catch (IOException exception) {
+            log.error(
+                    "Failed to read work report attachment: requestId={}, masterId={}",
+                    requestId,
+                    userId,
+                    exception
+            );
+
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "Не удалось прочитать загруженный файл"

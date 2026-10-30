@@ -2,6 +2,7 @@
 package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -52,6 +54,10 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn(
+                    "BUSINESS_EVENT event=USER_REGISTRATION_FAILED reason=EMAIL_ALREADY_EXISTS"
+            );
+
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким Email уже существует"
@@ -59,6 +65,10 @@ public class AuthService {
         }
 
         if (userRepository.existsByPhone(request.getPhone())) {
+            log.warn(
+                    "BUSINESS_EVENT event=USER_REGISTRATION_FAILED reason=PHONE_ALREADY_EXISTS"
+            );
+
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким телефоном уже существует"
@@ -84,6 +94,12 @@ public class AuthService {
         userRepository.save(user);
         userProfileProducer.sendClientProfileCreate(user);
 
+        log.info(
+                "BUSINESS_EVENT event=USER_REGISTERED userId={} role={}",
+                user.getId(),
+                role.getName()
+        );
+
         return map(user);
     }
 
@@ -93,12 +109,23 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.UNAUTHORIZED,
-                        "Неверный Email или пароль"
-                ));
+                .orElseThrow(() -> {
+                    log.warn(
+                            "BUSINESS_EVENT event=LOGIN_FAILED reason=USER_NOT_FOUND"
+                    );
+
+                    return new ApiException(
+                            HttpStatus.UNAUTHORIZED,
+                            "Неверный Email или пароль"
+                    );
+                });
 
         if (!Boolean.TRUE.equals(user.getEnabled())) {
+            log.warn(
+                    "BUSINESS_EVENT event=LOGIN_FAILED userId={} reason=ACCOUNT_DISABLED",
+                    user.getId()
+            );
+
             throw new ApiException(
                     HttpStatus.FORBIDDEN,
                     "Ваша учетная запись была заблокирована администратором"
@@ -109,6 +136,11 @@ public class AuthService {
                 request.getPassword(),
                 user.getPassword()
         )) {
+            log.warn(
+                    "BUSINESS_EVENT event=LOGIN_FAILED userId={} reason=INVALID_CREDENTIALS",
+                    user.getId()
+            );
+
             throw new ApiException(
                     HttpStatus.UNAUTHORIZED,
                     "Неверный Email или пароль"
@@ -116,6 +148,12 @@ public class AuthService {
         }
 
         String token = jwtService.generateToken(user);
+
+        log.info(
+                "BUSINESS_EVENT event=LOGIN_SUCCEEDED userId={} role={}",
+                user.getId(),
+                user.getRole().getName()
+        );
 
         return new LoginResponse(token);
     }
@@ -135,6 +173,10 @@ public class AuthService {
     ) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn(
+                    "BUSINESS_EVENT event=EMPLOYEE_CREATION_FAILED reason=EMAIL_ALREADY_EXISTS"
+            );
+
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким Email уже существует"
@@ -142,6 +184,10 @@ public class AuthService {
         }
 
         if (userRepository.existsByPhone(request.getPhone())) {
+            log.warn(
+                    "BUSINESS_EVENT event=EMPLOYEE_CREATION_FAILED reason=PHONE_ALREADY_EXISTS"
+            );
+
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "Пользователь с таким телефоном уже существует"
@@ -172,8 +218,21 @@ public class AuthService {
             userProfileProducer.sendEmployeeProfileCreate(user, request);
         } catch (Exception e) {
             userRepository.deleteById(user.getId());
+
+            log.error(
+                    "BUSINESS_EVENT event=EMPLOYEE_CREATION_FAILED userId={} role={} reason=PROFILE_CREATION_ERROR",
+                    user.getId(),
+                    role.getName()
+            );
+
             throw e;
         }
+
+        log.info(
+                "BUSINESS_EVENT event=EMPLOYEE_CREATED userId={} role={}",
+                user.getId(),
+                role.getName()
+        );
 
         return new CreateEmployeeResponse(
                 user.getEmail(),
@@ -274,7 +333,6 @@ public class AuthService {
                     .specializations(profile.getSpecializations())
                     .status(profile.getStatus())
 
-                    // Зоны обслуживания мастера
                     .zones(profile.getZones())
 
                     .department(profile.getDepartment())
@@ -320,8 +378,17 @@ public class AuthService {
                         "Пользователь не найден"
                 ));
 
+        boolean previousEnabled = Boolean.TRUE.equals(user.getEnabled());
+
         user.setEnabled(enabled);
         userRepository.save(user);
+
+        log.info(
+                "BUSINESS_EVENT event=USER_ACCOUNT_STATUS_CHANGED userId={} previousEnabled={} newEnabled={}",
+                user.getId(),
+                previousEnabled,
+                enabled
+        );
 
         return AdminUserResponse.builder()
                 .id(user.getId())
@@ -381,20 +448,16 @@ public class AuthService {
                     request.getMiddleName(),
                     request.getPhone(),
 
-                    // CLIENT
                     request.getHouseId(),
                     request.getApartment(),
 
-                    // ENGINEER
                     request.getEmployeeNumber(),
                     request.getSpecialization(),
                     request.getZoneId(),
                     request.getStatus(),
 
-                    // DISPATCHER
                     request.getDepartment(),
 
-                    // ADMIN
                     request.getPosition()
             );
 
@@ -419,6 +482,12 @@ public class AuthService {
             user.setEmail(request.getEmail());
 
             userRepository.save(user);
+
+            log.info(
+                    "BUSINESS_EVENT event=USER_UPDATED userId={} role={}",
+                    user.getId(),
+                    role
+            );
 
             return getUserCard(userId);
 
@@ -489,6 +558,12 @@ public class AuthService {
             }
 
             userRepository.delete(user);
+
+            log.info(
+                    "BUSINESS_EVENT event=USER_DELETED userId={} role={}",
+                    userId,
+                    role
+            );
 
         } catch (TimeoutException e) {
             throw new ApiException(

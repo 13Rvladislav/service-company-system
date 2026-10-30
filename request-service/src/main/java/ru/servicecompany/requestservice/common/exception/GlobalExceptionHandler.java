@@ -1,16 +1,21 @@
+
 package ru.servicecompany.requestservice.common.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import ru.servicecompany.requestservice.dto.response.ErrorResponse;
 
 import java.time.LocalDateTime;
@@ -30,9 +35,8 @@ public class GlobalExceptionHandler {
                 "API error: method={}, path={}, status={}, message={}",
                 request.getMethod(),
                 request.getRequestURI(),
-                exception.getStatus(),
-                exception.getMessage(),
-                exception
+                exception.getStatus().value(),
+                exception.getMessage()
         );
 
         return buildResponse(
@@ -50,16 +54,14 @@ public class GlobalExceptionHandler {
     ) {
         Map<String, String> errors = new LinkedHashMap<>();
 
-        for (FieldError fieldError :
-                exception.getBindingResult().getFieldErrors()) {
-
-            errors.putIfAbsent(
-                    fieldError.getField(),
-                    fieldError.getDefaultMessage() != null
-                            ? fieldError.getDefaultMessage()
-                            : "Некорректное значение"
-            );
-        }
+        exception.getBindingResult().getFieldErrors().forEach(error ->
+                errors.putIfAbsent(
+                        error.getField(),
+                        error.getDefaultMessage() != null
+                                ? error.getDefaultMessage()
+                                : "Некорректное значение"
+                )
+        );
 
         log.warn(
                 "Validation error: method={}, path={}, errors={}",
@@ -81,18 +83,27 @@ public class GlobalExceptionHandler {
             ConstraintViolationException exception,
             HttpServletRequest request
     ) {
+        Map<String, String> errors = new LinkedHashMap<>();
+
+        exception.getConstraintViolations().forEach(violation ->
+                errors.putIfAbsent(
+                        violation.getPropertyPath().toString(),
+                        violation.getMessage()
+                )
+        );
+
         log.warn(
-                "Constraint violation: method={}, path={}",
+                "Constraint violation: method={}, path={}, errors={}",
                 request.getMethod(),
                 request.getRequestURI(),
-                exception
+                errors
         );
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Нарушены ограничения входных данных",
                 request,
-                Map.of()
+                errors
         );
     }
 
@@ -104,13 +115,51 @@ public class GlobalExceptionHandler {
         log.warn(
                 "Invalid request body: method={}, path={}",
                 request.getMethod(),
-                request.getRequestURI(),
-                exception
+                request.getRequestURI()
         );
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Некорректный формат тела запроса",
+                request,
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(
+            MissingServletRequestParameterException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Не передан обязательный параметр: " + exception.getParameterName(),
+                request,
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "HTTP-метод не поддерживается для данного endpoint",
+                request,
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(
+            NoResourceFoundException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                "Запрашиваемый ресурс не найден",
                 request,
                 Map.of()
         );
@@ -136,13 +185,38 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(
+            ResponseStatusException exception,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
+
+        log.warn(
+                "HTTP error: method={}, path={}, status={}, message={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                status.value(),
+                exception.getReason()
+        );
+
+        return buildResponse(
+                status,
+                exception.getReason() != null
+                        ? exception.getReason()
+                        : status.getReasonPhrase(),
+                request,
+                Map.of()
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(
             Exception exception,
             HttpServletRequest request
     ) {
         log.error(
-                "UNEXPECTED ERROR: method={}, path={}, query={}",
+                "Unexpected error: method={}, path={}, query={}",
                 request.getMethod(),
                 request.getRequestURI(),
                 request.getQueryString(),

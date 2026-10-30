@@ -1,6 +1,8 @@
+
 package ru.servicecompany.equipment.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,7 @@ import ru.servicecompany.equipment.repository.EquipmentTypeRepository;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -75,6 +78,12 @@ public class EquipmentTypeService {
         EquipmentType saved =
                 equipmentTypeRepository.save(equipmentType);
 
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_TYPE_CREATED equipmentTypeId={} name={}",
+                saved.getId(),
+                saved.getName()
+        );
+
         return mapToResponse(saved);
     }
 
@@ -108,10 +117,19 @@ public class EquipmentTypeService {
             );
         }
 
+        String previousName = equipmentType.getName();
+
         equipmentType.setName(name);
 
         EquipmentType updated =
                 equipmentTypeRepository.save(equipmentType);
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_TYPE_UPDATED equipmentTypeId={} previousName={} newName={}",
+                updated.getId(),
+                previousName,
+                updated.getName()
+        );
 
         return mapToResponse(updated);
     }
@@ -130,7 +148,15 @@ public class EquipmentTypeService {
                                         + " не найден"
                         ));
 
+        String name = equipmentType.getName();
+
         equipmentTypeRepository.delete(equipmentType);
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_TYPE_DELETED equipmentTypeId={} name={}",
+                id,
+                name
+        );
     }
 
     private EquipmentTypeResponse mapToResponse(

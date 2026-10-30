@@ -1,6 +1,8 @@
+
 package ru.servicecompany.user.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,7 @@ import java.util.UUID;
 
 import ru.servicecompany.user.repository.MasterZoneRepository;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserProfileService {
@@ -40,6 +43,7 @@ public class UserProfileService {
     /**
      * Создание профиля клиента.
      */
+    @Transactional
     public UserProfileResponse create(CreateUserProfileRequest request) {
 
         if (userRepository.existsByAuthUserId(request.getAuthUserId())) {
@@ -56,7 +60,15 @@ public class UserProfileService {
                 .apartment(null)
                 .build();
 
-        return map(userRepository.save(profile), "CLIENT", null);
+        UserProfile savedProfile = userRepository.save(profile);
+
+        log.info(
+                "BUSINESS_EVENT event=USER_PROFILE_CREATED profileId={} authUserId={} role=CLIENT",
+                savedProfile.getId(),
+                savedProfile.getAuthUserId()
+        );
+
+        return map(savedProfile, "CLIENT", null);
     }
 
     /**
@@ -153,7 +165,7 @@ public class UserProfileService {
     }
 
     /**
-     * Обновление профиля клиента.
+     * Обновление профиля текущего пользователя.
      */
     @Transactional
     public UserProfileResponse updateCurrentProfile(
@@ -185,6 +197,10 @@ public class UserProfileService {
                                 "Дом не найден"
                         ));
 
+                UUID previousHouseId = profile.getHouse() != null
+                        ? profile.getHouse().getId()
+                        : null;
+
                 profile.setFirstName(request.getFirstName());
                 profile.setLastName(request.getLastName());
                 profile.setMiddleName(request.getMiddleName());
@@ -193,6 +209,14 @@ public class UserProfileService {
                 profile.setApartment(request.getApartment());
 
                 userRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=CLIENT previousHouseId={} newHouseId={}",
+                        profile.getId(),
+                        profile.getAuthUserId(),
+                        previousHouseId,
+                        house.getId()
+                );
 
                 yield map(profile, principal.role(), principal.email());
             }
@@ -212,6 +236,12 @@ public class UserProfileService {
                 profile.setPhone(request.getPhone());
 
                 masterRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=ENGINEER",
+                        profile.getId(),
+                        profile.getAuthUserId()
+                );
 
                 yield UserProfileResponse.builder()
                         .id(profile.getId())
@@ -246,6 +276,12 @@ public class UserProfileService {
 
                 dispatcherRepository.save(profile);
 
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=DISPATCHER",
+                        profile.getId(),
+                        profile.getAuthUserId()
+                );
+
                 yield UserProfileResponse.builder()
                         .id(profile.getId())
                         .authUserId(profile.getAuthUserId())
@@ -276,6 +312,12 @@ public class UserProfileService {
                 profile.setPhone(request.getPhone());
 
                 adminRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED profileId={} authUserId={} role=ADMIN",
+                        profile.getId(),
+                        profile.getAuthUserId()
+                );
 
                 yield UserProfileResponse.builder()
                         .id(profile.getId())
@@ -309,6 +351,13 @@ public class UserProfileService {
             MultipartFile file
     ) throws IOException {
 
+        if (file == null || file.isEmpty()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Файл аватара не выбран"
+            );
+        }
+
         byte[] avatar = file.getBytes();
 
         switch (role) {
@@ -321,6 +370,13 @@ public class UserProfileService {
                         ));
                 profile.setAvatar(avatar);
                 userRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=CLIENT sizeBytes={}",
+                        profile.getId(),
+                        userId,
+                        avatar.length
+                );
             }
 
             case "ENGINEER" -> {
@@ -331,6 +387,13 @@ public class UserProfileService {
                         ));
                 profile.setAvatar(avatar);
                 masterRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=ENGINEER sizeBytes={}",
+                        profile.getId(),
+                        userId,
+                        avatar.length
+                );
             }
 
             case "DISPATCHER" -> {
@@ -341,6 +404,13 @@ public class UserProfileService {
                         ));
                 profile.setAvatar(avatar);
                 dispatcherRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=DISPATCHER sizeBytes={}",
+                        profile.getId(),
+                        userId,
+                        avatar.length
+                );
             }
 
             case "ADMIN" -> {
@@ -351,6 +421,13 @@ public class UserProfileService {
                         ));
                 profile.setAvatar(avatar);
                 adminRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_AVATAR_UPLOADED profileId={} authUserId={} role=ADMIN sizeBytes={}",
+                        profile.getId(),
+                        userId,
+                        avatar.length
+                );
             }
 
             default -> throw new ApiException(
@@ -508,7 +585,9 @@ public class UserProfileService {
         };
     }
 
-
+    /**
+     * Обновление профиля по событию из auth-service.
+     */
     @Transactional
     public void updateProfileByAuthUserId(ProfileUpdateRequestEvent event) {
 
@@ -535,6 +614,13 @@ public class UserProfileService {
                 profile.setApartment(event.getApartment());
 
                 userRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=CLIENT houseId={}",
+                        profile.getId(),
+                        event.getAuthUserId(),
+                        house.getId()
+                );
             }
 
             case "ENGINEER" -> {
@@ -561,8 +647,6 @@ public class UserProfileService {
                             HttpStatus.BAD_REQUEST, "Некорректный статус мастера");
                 }
 
-                // Меняем специализации только при явной передаче списка.
-                // null означает «оставить существующие без изменений».
                 if (event.getSpecializationIds() != null) {
                     if (event.getSpecializationIds().isEmpty()) {
                         throw new ApiException(
@@ -589,7 +673,6 @@ public class UserProfileService {
                     profile.setSpecializations(new HashSet<>(specializations));
                 }
 
-                // Обновляем основные поля сотрудника.
                 profile.setFirstName(event.getFirstName());
                 profile.setLastName(event.getLastName());
                 profile.setMiddleName(event.getMiddleName());
@@ -597,7 +680,6 @@ public class UserProfileService {
                 profile.setEmployeeNumber(event.getEmployeeNumber());
                 profile.setStatus(status);
 
-                // Не сбрасываем зону, если она не передана.
                 if (event.getZoneId() != null) {
                     zoneRepository.findById(event.getZoneId())
                             .orElseThrow(() -> new ApiException(
@@ -607,6 +689,15 @@ public class UserProfileService {
                 }
 
                 masterRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=ENGINEER status={} specializationsUpdated={} zoneUpdated={}",
+                        profile.getId(),
+                        event.getAuthUserId(),
+                        status,
+                        event.getSpecializationIds() != null,
+                        event.getZoneId() != null
+                );
             }
 
             case "DISPATCHER" -> {
@@ -635,6 +726,12 @@ public class UserProfileService {
                 profile.setDepartment(event.getDepartment());
 
                 dispatcherRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=DISPATCHER",
+                        profile.getId(),
+                        event.getAuthUserId()
+                );
             }
 
             case "ADMIN" -> {
@@ -661,6 +758,12 @@ public class UserProfileService {
                 }
 
                 adminRepository.save(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_UPDATED_FROM_AUTH profileId={} authUserId={} role=ADMIN",
+                        profile.getId(),
+                        event.getAuthUserId()
+                );
             }
 
             default -> throw new ApiException(
@@ -668,7 +771,9 @@ public class UserProfileService {
         }
     }
 
-
+    /**
+     * Удаление профиля.
+     */
     @Transactional
     public void deleteProfile(UUID authUserId, String role) {
 
@@ -681,7 +786,15 @@ public class UserProfileService {
                                 "Профиль клиента не найден"
                         ));
 
+                UUID profileId = profile.getId();
+
                 userRepository.delete(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=CLIENT",
+                        profileId,
+                        authUserId
+                );
             }
 
             case "ENGINEER" -> {
@@ -691,11 +804,16 @@ public class UserProfileService {
                                 "Профиль мастера не найден"
                         ));
 
-                // Сначала удаляем связи с зонами.
-                masterZoneRepository.deleteAllByMaster_Id(profile.getId());
+                UUID profileId = profile.getId();
 
-                // Затем удаляем сам профиль мастера.
+                masterZoneRepository.deleteAllByMaster_Id(profile.getId());
                 masterRepository.delete(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=ENGINEER",
+                        profileId,
+                        authUserId
+                );
             }
 
             case "DISPATCHER" -> {
@@ -706,7 +824,15 @@ public class UserProfileService {
                                         "Профиль диспетчера не найден"
                                 ));
 
+                UUID profileId = profile.getId();
+
                 dispatcherRepository.delete(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=DISPATCHER",
+                        profileId,
+                        authUserId
+                );
             }
 
             case "ADMIN" -> {
@@ -716,7 +842,15 @@ public class UserProfileService {
                                 "Профиль администратора не найден"
                         ));
 
+                UUID profileId = profile.getId();
+
                 adminRepository.delete(profile);
+
+                log.info(
+                        "BUSINESS_EVENT event=USER_PROFILE_DELETED profileId={} authUserId={} role=ADMIN",
+                        profileId,
+                        authUserId
+                );
             }
 
             default -> throw new ApiException(
@@ -725,7 +859,6 @@ public class UserProfileService {
             );
         }
     }
-
 
     /**
      * Entity -> Response
@@ -745,7 +878,6 @@ public class UserProfileService {
         String streetName = null;
         String houseNumber = null;
 
-        // Получаем адрес клиента
         if (profile.getHouse() != null) {
 
             House house = profile.getHouse();
@@ -760,7 +892,6 @@ public class UserProfileService {
                 streetId = street.getId();
                 streetName = street.getName();
 
-                // Зона обслуживания улицы
                 if (street.getZone() != null) {
                     zoneId = street.getZone().getId();
                 }
@@ -782,26 +913,19 @@ public class UserProfileService {
         return UserProfileResponse.builder()
                 .id(profile.getId())
                 .authUserId(profile.getAuthUserId())
-
                 .firstName(profile.getFirstName())
                 .lastName(profile.getLastName())
                 .middleName(profile.getMiddleName())
                 .email(email)
                 .phone(profile.getPhone())
-
-                // Адрес: ID
                 .cityId(cityId)
                 .streetId(streetId)
                 .houseId(houseId)
                 .zoneId(zoneId)
-
-                // Адрес: названия
                 .cityName(cityName)
                 .streetName(streetName)
                 .houseNumber(houseNumber)
-
                 .apartment(profile.getApartment())
-
                 .role(role)
                 .hasAvatar(hasAvatar)
                 .build();
@@ -839,6 +963,4 @@ public class UserProfileService {
                         .build())
                 .toList();
     }
-
 }
-

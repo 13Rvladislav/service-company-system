@@ -1,6 +1,8 @@
+
 package ru.servicecompany.equipment.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,7 @@ import ru.servicecompany.equipment.repository.UserEquipmentRepository;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -53,6 +56,9 @@ public class UserEquipmentService {
         return mapToResponse(userEquipment);
     }
 
+    /**
+     * Добавить оборудование клиента.
+     */
     public UserEquipmentResponse addEquipment(
             UUID authUserId,
             UserEquipmentRequest request
@@ -77,9 +83,20 @@ public class UserEquipmentService {
         UserEquipment saved =
                 userEquipmentRepository.save(userEquipment);
 
+        log.info(
+                "BUSINESS_EVENT event=USER_EQUIPMENT_ADDED authUserId={} equipmentId={} catalogId={} equipmentTypeId={}",
+                authUserId,
+                saved.getId(),
+                equipmentCatalog.getId(),
+                equipmentCatalog.getEquipmentType().getId()
+        );
+
         return mapToResponse(saved);
     }
 
+    /**
+     * Обновить оборудование клиента.
+     */
     public UserEquipmentResponse updateEquipment(
             UUID authUserId,
             UUID equipmentId,
@@ -95,6 +112,9 @@ public class UserEquipmentService {
                                 HttpStatus.NOT_FOUND,
                                 "Оборудование не найдено"
                         ));
+
+        UUID previousCatalogId =
+                userEquipment.getEquipmentCatalog().getId();
 
         EquipmentCatalog equipmentCatalog =
                 getEquipmentCatalog(
@@ -120,9 +140,20 @@ public class UserEquipmentService {
                         userEquipment
                 );
 
+        log.info(
+                "BUSINESS_EVENT event=USER_EQUIPMENT_UPDATED authUserId={} equipmentId={} previousCatalogId={} newCatalogId={}",
+                authUserId,
+                updated.getId(),
+                previousCatalogId,
+                equipmentCatalog.getId()
+        );
+
         return mapToResponse(updated);
     }
 
+    /**
+     * Удалить оборудование клиента.
+     */
     public void deleteEquipment(
             UUID authUserId,
             UUID equipmentId
@@ -138,7 +169,17 @@ public class UserEquipmentService {
                                 "Оборудование не найдено"
                         ));
 
+        UUID catalogId =
+                userEquipment.getEquipmentCatalog().getId();
+
         userEquipmentRepository.delete(userEquipment);
+
+        log.info(
+                "BUSINESS_EVENT event=USER_EQUIPMENT_DELETED authUserId={} equipmentId={} catalogId={}",
+                authUserId,
+                equipmentId,
+                catalogId
+        );
     }
 
     private EquipmentCatalog getEquipmentCatalog(

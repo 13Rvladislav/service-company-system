@@ -1,6 +1,8 @@
+
 package ru.servicecompany.equipment.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,7 @@ import ru.servicecompany.equipment.repository.EquipmentTypeRepository;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -82,6 +85,14 @@ public class EquipmentCatalogService {
         EquipmentCatalog saved =
                 equipmentCatalogRepository.save(equipment);
 
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_CREATED equipmentId={} equipmentTypeId={} manufacturer={} model={}",
+                saved.getId(),
+                equipmentType.getId(),
+                saved.getManufacturer(),
+                saved.getModel()
+        );
+
         return mapToResponse(saved);
     }
 
@@ -105,6 +116,9 @@ public class EquipmentCatalogService {
         EquipmentType equipmentType =
                 getEquipmentType(request.getEquipmentTypeId());
 
+        UUID previousEquipmentTypeId =
+                equipment.getEquipmentType().getId();
+
         equipment.setEquipmentType(equipmentType);
 
         equipment.setManufacturer(
@@ -124,6 +138,15 @@ public class EquipmentCatalogService {
         EquipmentCatalog updated =
                 equipmentCatalogRepository.save(equipment);
 
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_UPDATED equipmentId={} previousEquipmentTypeId={} newEquipmentTypeId={} manufacturer={} model={}",
+                updated.getId(),
+                previousEquipmentTypeId,
+                equipmentType.getId(),
+                updated.getManufacturer(),
+                updated.getModel()
+        );
+
         return mapToResponse(updated);
     }
 
@@ -141,7 +164,19 @@ public class EquipmentCatalogService {
                                         + " не найдено"
                         ));
 
+        UUID equipmentTypeId = equipment.getEquipmentType().getId();
+        String manufacturer = equipment.getManufacturer();
+        String model = equipment.getModel();
+
         equipmentCatalogRepository.delete(equipment);
+
+        log.info(
+                "BUSINESS_EVENT event=EQUIPMENT_CATALOG_DELETED equipmentId={} equipmentTypeId={} manufacturer={} model={}",
+                id,
+                equipmentTypeId,
+                manufacturer,
+                model
+        );
     }
 
     /**

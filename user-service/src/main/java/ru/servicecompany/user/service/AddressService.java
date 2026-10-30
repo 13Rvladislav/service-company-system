@@ -1,6 +1,8 @@
+
 package ru.servicecompany.user.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,7 @@ import ru.servicecompany.user.repository.*;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AddressService {
@@ -27,22 +30,42 @@ public class AddressService {
     private final HouseRepository houseRepository;
     private final ZoneRepository zoneRepository;
     private final UserProfileRepository userProfileRepository;
+
     // =========================
     // CITY
     // =========================
 
+    /**
+     * Создать город.
+     */
+    @Transactional
     public CityResponse createCity(CreateCityRequest request) {
 
         if (cityRepository.existsByName(request.getName())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Город уже существует");
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Город уже существует"
+            );
         }
 
         City city = new City();
         city.setName(request.getName());
 
-        return map(cityRepository.save(city));
+        City savedCity = cityRepository.save(city);
+
+        log.info(
+                "BUSINESS_EVENT event=CITY_CREATED cityId={} cityName={}",
+                savedCity.getId(),
+                savedCity.getName()
+        );
+
+        return map(savedCity);
     }
 
+    /**
+     * Получить все города.
+     */
+    @Transactional(readOnly = true)
     public List<CityResponse> getCities() {
         return cityRepository.findAll()
                 .stream()
@@ -50,64 +73,9 @@ public class AddressService {
                 .toList();
     }
 
-    // =========================
-    // STREET
-    // =========================
-
-    public StreetResponse createStreet(CreateStreetRequest request) {
-
-        City city = cityRepository.findById(request.getCityId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Город не найден"));
-
-        Zone zone = zoneRepository.findById(request.getZoneId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Зона не найдена"));
-
-        Street street = new Street();
-        street.setName(request.getName());
-        street.setCity(city);
-        street.setZone(zone);
-
-        return map(streetRepository.save(street));
-    }
-
-    public List<StreetResponse> getStreets(UUID cityId) {
-
-        City city = cityRepository.findById(cityId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Город не найден"));
-
-        return streetRepository.findByCity(city)
-                .stream()
-                .map(this::map)
-                .toList();
-    }
-
-    // =========================
-    // HOUSE
-    // =========================
-
-    public HouseResponse createHouse(CreateHouseRequest request) {
-
-        Street street = streetRepository.findById(request.getStreetId())
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Улица не найдена"));
-
-        House house = new House();
-        house.setNumber(request.getNumber());
-        house.setStreet(street);
-
-        return map(houseRepository.save(house));
-    }
-
-    public List<HouseResponse> getHouses(UUID streetId) {
-
-        Street street = streetRepository.findById(streetId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Улица не найдена"));
-
-        return houseRepository.findByStreet(street)
-                .stream()
-                .map(this::map)
-                .toList();
-    }
-
+    /**
+     * Обновить город.
+     */
     @Transactional
     public CityResponse updateCity(UUID id, UpdateCityRequest request) {
 
@@ -117,11 +85,25 @@ public class AddressService {
                         "Город не найден"
                 ));
 
+        String previousName = city.getName();
+
         city.setName(request.getName());
 
-        return map(cityRepository.save(city));
+        City savedCity = cityRepository.save(city);
+
+        log.info(
+                "BUSINESS_EVENT event=CITY_UPDATED cityId={} previousName={} newName={}",
+                savedCity.getId(),
+                previousName,
+                savedCity.getName()
+        );
+
+        return map(savedCity);
     }
 
+    /**
+     * Удалить город.
+     */
     @Transactional
     public void deleteCity(UUID id) {
 
@@ -138,9 +120,77 @@ public class AddressService {
             );
         }
 
+        String cityName = city.getName();
+
         cityRepository.delete(city);
+
+        log.info(
+                "BUSINESS_EVENT event=CITY_DELETED cityId={} cityName={}",
+                id,
+                cityName
+        );
     }
 
+    // =========================
+    // STREET
+    // =========================
+
+    /**
+     * Создать улицу.
+     */
+    @Transactional
+    public StreetResponse createStreet(CreateStreetRequest request) {
+
+        City city = cityRepository.findById(request.getCityId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Город не найден"
+                ));
+
+        Zone zone = zoneRepository.findById(request.getZoneId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Зона не найдена"
+                ));
+
+        Street street = new Street();
+        street.setName(request.getName());
+        street.setCity(city);
+        street.setZone(zone);
+
+        Street savedStreet = streetRepository.save(street);
+
+        log.info(
+                "BUSINESS_EVENT event=STREET_CREATED streetId={} cityId={} zoneId={}",
+                savedStreet.getId(),
+                city.getId(),
+                zone.getId()
+        );
+
+        return map(savedStreet);
+    }
+
+    /**
+     * Получить улицы города.
+     */
+    @Transactional(readOnly = true)
+    public List<StreetResponse> getStreets(UUID cityId) {
+
+        City city = cityRepository.findById(cityId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Город не найден"
+                ));
+
+        return streetRepository.findByCity(city)
+                .stream()
+                .map(this::map)
+                .toList();
+    }
+
+    /**
+     * Обновить улицу.
+     */
     @Transactional
     public StreetResponse updateStreet(
             UUID id,
@@ -153,6 +203,9 @@ public class AddressService {
                         "Улица не найдена"
                 ));
 
+        String previousName = street.getName();
+        UUID previousZoneId = street.getZone().getId();
+
         Zone zone = zoneRepository.findById(request.getZoneId())
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
@@ -162,9 +215,24 @@ public class AddressService {
         street.setName(request.getName());
         street.setZone(zone);
 
-        return map(streetRepository.save(street));
+        Street savedStreet = streetRepository.save(street);
+
+        log.info(
+                "BUSINESS_EVENT event=STREET_UPDATED streetId={} cityId={} previousName={} newName={} previousZoneId={} newZoneId={}",
+                savedStreet.getId(),
+                savedStreet.getCity().getId(),
+                previousName,
+                savedStreet.getName(),
+                previousZoneId,
+                zone.getId()
+        );
+
+        return map(savedStreet);
     }
 
+    /**
+     * Удалить улицу.
+     */
     @Transactional
     public void deleteStreet(UUID id) {
 
@@ -181,9 +249,70 @@ public class AddressService {
             );
         }
 
+        UUID cityId = street.getCity().getId();
+
         streetRepository.delete(street);
+
+        log.info(
+                "BUSINESS_EVENT event=STREET_DELETED streetId={} cityId={}",
+                id,
+                cityId
+        );
     }
 
+    // =========================
+    // HOUSE
+    // =========================
+
+    /**
+     * Создать дом.
+     */
+    @Transactional
+    public HouseResponse createHouse(CreateHouseRequest request) {
+
+        Street street = streetRepository.findById(request.getStreetId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Улица не найдена"
+                ));
+
+        House house = new House();
+        house.setNumber(request.getNumber());
+        house.setStreet(street);
+
+        House savedHouse = houseRepository.save(house);
+
+        log.info(
+                "BUSINESS_EVENT event=HOUSE_CREATED houseId={} streetId={} cityId={}",
+                savedHouse.getId(),
+                street.getId(),
+                street.getCity().getId()
+        );
+
+        return map(savedHouse);
+    }
+
+    /**
+     * Получить дома улицы.
+     */
+    @Transactional(readOnly = true)
+    public List<HouseResponse> getHouses(UUID streetId) {
+
+        Street street = streetRepository.findById(streetId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Улица не найдена"
+                ));
+
+        return houseRepository.findByStreet(street)
+                .stream()
+                .map(this::map)
+                .toList();
+    }
+
+    /**
+     * Обновить дом.
+     */
     @Transactional
     public HouseResponse updateHouse(
             UUID id,
@@ -196,11 +325,26 @@ public class AddressService {
                         "Дом не найден"
                 ));
 
+        String previousNumber = house.getNumber();
+
         house.setNumber(request.getNumber());
 
-        return map(houseRepository.save(house));
+        House savedHouse = houseRepository.save(house);
+
+        log.info(
+                "BUSINESS_EVENT event=HOUSE_UPDATED houseId={} streetId={} previousNumber={} newNumber={}",
+                savedHouse.getId(),
+                savedHouse.getStreet().getId(),
+                previousNumber,
+                savedHouse.getNumber()
+        );
+
+        return map(savedHouse);
     }
 
+    /**
+     * Удалить дом.
+     */
     @Transactional
     public void deleteHouse(UUID id) {
 
@@ -217,8 +361,17 @@ public class AddressService {
             );
         }
 
+        UUID streetId = house.getStreet().getId();
+
         houseRepository.delete(house);
+
+        log.info(
+                "BUSINESS_EVENT event=HOUSE_DELETED houseId={} streetId={}",
+                id,
+                streetId
+        );
     }
+
     // =========================
     // MAPPERS
     // =========================
@@ -250,6 +403,9 @@ public class AddressService {
                 .build();
     }
 
+    /**
+     * Получить дом по ID вместе с информацией об адресе.
+     */
     @Transactional(readOnly = true)
     public HouseResponse getHouseById(UUID houseId) {
 
