@@ -1,3 +1,4 @@
+
 package ru.servicecompany.auth.config;
 
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,13 @@ public class SecurityConfig {
 
                         // CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Actuator: мониторинг
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/prometheus"
+                        ).permitAll()
 
                         // Swagger
                         .requestMatchers(

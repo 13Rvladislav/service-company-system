@@ -41,6 +41,13 @@ public class SecurityConfig {
                                 "/**"
                         ).permitAll()
 
+                        // Actuator: мониторинг
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/prometheus"
+                        ).permitAll()
+
                         // Swagger
                         .requestMatchers(
                                 "/swagger-ui/**",

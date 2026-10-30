@@ -1,4 +1,3 @@
-
 server:
   port: 8081
 
@@ -47,6 +46,20 @@ springdoc:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION}
+
+management:
+  endpoints:
+    access:
+      default: none
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      access: read-only
+      show-details: never
+    prometheus:
+      access: read-only
 
 logging:
   pattern:

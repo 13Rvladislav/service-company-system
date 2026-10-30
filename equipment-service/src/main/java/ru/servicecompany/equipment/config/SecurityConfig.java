@@ -1,3 +1,4 @@
+
 package ru.servicecompany.equipment.config;
 
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,15 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
+
+                        // =========================
+                        // Actuator: мониторинг
+                        // =========================
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/prometheus"
+                        ).permitAll()
 
                         // =========================
                         // Swagger

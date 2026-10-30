@@ -1,3 +1,4 @@
+
 package ru.servicecompany.requestservice.config;
 
 import lombok.RequiredArgsConstructor;
@@ -39,11 +40,17 @@ public class SecurityConfig {
                                 "/**"
                         ).permitAll()
 
+                        // Actuator: мониторинг
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/prometheus"
+                        ).permitAll()
+
                         .requestMatchers(
                                 "/swagger",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/actuator/health"
+                                "/v3/api-docs/**"
                         ).permitAll()
 
                         // Аналитика.
