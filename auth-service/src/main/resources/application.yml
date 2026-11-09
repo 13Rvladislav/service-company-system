@@ -1,3 +1,4 @@
+
 server:
   port: 8081
 
@@ -46,6 +47,10 @@ springdoc:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION}
+
+app:
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost}
 
 management:
   endpoints:

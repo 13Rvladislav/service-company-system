@@ -3,6 +3,7 @@ package ru.servicecompany.auth.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -15,12 +16,16 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
+    @Value("${app.frontend.base-url}")
+    private String frontendBaseUrl;
+
     /**
      * Отправка письма для восстановления пароля.
      */
     public void sendResetPasswordEmail(String email, String token) {
 
-        String link = "http://localhost:63342/service-company-system/web/reset.html?token=" + token;
+        String link = frontendBaseUrl.replaceAll("/+$", "")
+                + "/reset.html?token=" + token;
 
         SimpleMailMessage message = new SimpleMailMessage();
 

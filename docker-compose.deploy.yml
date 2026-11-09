@@ -1,0 +1,135 @@
+
+services:
+
+  # ==========================================
+  # AUTH SERVICE
+  # ==========================================
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+
+    container_name: sc_auth_service
+
+    ports:
+      - "8081:8081"
+
+    env_file:
+      - .env
+
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FRONTEND_BASE_URL: http://localhost
+
+    depends_on:
+      - postgres
+      - kafka
+
+    restart: unless-stopped
+
+
+  # ==========================================
+  # USER SERVICE
+  # ==========================================
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+
+    container_name: sc_user_service
+
+    ports:
+      - "8082:8082"
+
+    env_file:
+      - .env
+
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+    depends_on:
+      - postgres
+      - kafka
+
+    restart: unless-stopped
+
+
+  # ==========================================
+  # EQUIPMENT SERVICE
+  # ==========================================
+  equipment-service:
+    build:
+      context: ./equipment-service
+      dockerfile: Dockerfile
+
+    container_name: sc_equipment_service
+
+    ports:
+      - "8083:8083"
+
+    env_file:
+      - .env
+
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+    depends_on:
+      - postgres
+      - kafka
+
+    restart: unless-stopped
+
+
+  # ==========================================
+  # REQUEST SERVICE
+  # ==========================================
+  request-service:
+    build:
+      context: ./request-service
+      dockerfile: Dockerfile
+
+    container_name: sc_request_service
+
+    ports:
+      - "8084:8084"
+
+    env_file:
+      - .env
+
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+    depends_on:
+      - postgres
+      - kafka
+      - auth-service
+      - user-service
+      - equipment-service
+
+    restart: unless-stopped
+
+
+  # ==========================================
+  # FRONTEND + NGINX
+  # ==========================================
+  frontend:
+    build:
+      context: ../service-company-frontend
+      dockerfile: Dockerfile
+
+    container_name: sc_frontend
+
+    ports:
+      - "80:80"
+
+    depends_on:
+      - auth-service
+      - user-service
+      - equipment-service
+      - request-service
+
+    restart: unless-stopped

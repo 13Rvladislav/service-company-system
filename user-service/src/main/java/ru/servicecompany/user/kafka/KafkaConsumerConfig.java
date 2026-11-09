@@ -1,7 +1,9 @@
+
 package ru.servicecompany.user.kafka;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -18,8 +20,8 @@ import java.util.Map;
 @EnableKafka
 public class KafkaConsumerConfig {
 
-    private static final String BOOTSTRAP_SERVERS =
-            "localhost:29092";
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServers;
 
     private static final String GROUP_ID =
             "user-service-group";
@@ -38,7 +40,7 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                BOOTSTRAP_SERVERS
+                bootstrapServers
         );
 
         props.put(
@@ -114,7 +116,7 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                BOOTSTRAP_SERVERS
+                bootstrapServers
         );
 
         props.put(
@@ -184,7 +186,7 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                BOOTSTRAP_SERVERS
+                bootstrapServers
         );
 
         props.put(
@@ -255,7 +257,7 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                BOOTSTRAP_SERVERS
+                bootstrapServers
         );
 
         props.put(
@@ -317,6 +319,7 @@ public class KafkaConsumerConfig {
 
         return factory;
     }
+
     @Bean
     public ConsumerFactory<String, AddressByIdRequestEvent>
     addressByIdRequestConsumerFactory() {
@@ -325,7 +328,7 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                BOOTSTRAP_SERVERS
+                bootstrapServers
         );
 
         props.put(
@@ -382,6 +385,7 @@ public class KafkaConsumerConfig {
 
         return factory;
     }
+
     @Bean
     public ConsumerFactory<String, MasterByIdRequestEvent>
     masterByIdRequestConsumerFactory() {
@@ -390,7 +394,7 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                BOOTSTRAP_SERVERS
+                bootstrapServers
         );
 
         props.put(
@@ -447,6 +451,7 @@ public class KafkaConsumerConfig {
 
         return factory;
     }
+
     @Bean
     public ConsumerFactory<String, MasterAssignmentCandidatesRequestEvent>
     masterAssignmentCandidatesConsumerFactory() {
@@ -455,7 +460,7 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                BOOTSTRAP_SERVERS
+                bootstrapServers
         );
 
         props.put(
